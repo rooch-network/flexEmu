@@ -1,0 +1,6 @@
+[build]
+xargo=true
+default-target="mips-unknown-linux-musl"
+
+#[target.mips-unknown-linux-musl]
+#
