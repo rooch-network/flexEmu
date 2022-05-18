@@ -6,6 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-unicorn-engine = "2.0.0-rc7"
+clap = { version = "3.1.18", features = ["derive"] }
+unicorn-engine = { version = "2.0.0-rc7" }
+bytes = { version = "1.1.0" }
+byteorder = { version = "1.4.3" }
 #unicorn = "0.9.1"
 #unicorn-rs = "0.1.0"
