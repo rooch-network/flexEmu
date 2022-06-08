@@ -8,6 +8,7 @@ use unicorn_engine::{RegisterMIPS, Unicorn};
 use unicorn_engine::unicorn_const::{Arch, Mode, Permission, uc_error};
 
 use clap::Parser;
+use goblin::elf::header::ET_EXEC;
 
 #[derive(Parser)]
 struct Options {
@@ -17,8 +18,14 @@ struct Options {
 }
 
 fn main() -> Result<(), uc_error> {
+
     let options: Options = Options::parse();
     let binary = std::fs::read(options.file.as_path()).unwrap();
+
+    let elf = goblin::elf::Elf::parse(&binary).unwrap();
+    elf.header.e_type == ET_EXEC;
+
+
     let steps = options.steps;
     let mut ram = HashMap::<u32, u32>::new();
     let current_step = Arc::new(AtomicUsize::new(0));
