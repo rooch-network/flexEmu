@@ -1,19 +1,28 @@
+pub mod errors;
+pub mod arch;
+pub mod registers;
+
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::ops::BitOr;
 use std::rc::Rc;
 use anyhow::{bail, Result};
 use goblin::elf::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
-use unicorn_engine::Unicorn;
-use unicorn_engine::unicorn_const::{Arch, MemRegion, Mode, Permission};
+use unicorn_engine::{RegisterMIPS, Unicorn};
+use unicorn_engine::unicorn_const::{Arch, MemRegion, Mode, Permission, uc_error};
+use crate::registers::RegisterManager;
 
 pub struct Emulator<'a, Loader, Os> {
+    uc: Rc<RefCell<Unicorn<'a, ()>>>,
     mem: MemoryManager<'a>,
+    registers: RegisterManager<'a>,
     loader: Loader,
     os: Os,
 }
 
 struct MapInfo {
-
+    info: MemRegion,
+    label: String,
 }
 pub struct MemoryManager<'a> {
     uc: Rc<RefCell<Unicorn<'a, ()>>>,
@@ -25,6 +34,21 @@ impl<'a> MemoryManager<'a> {
             uc,
             map_info: Vec::new()
         }
+    }
+    pub fn mem_map(&mut self, MemRegion {begin,end,perms}: MemRegion, info: Option<String>) -> Result<(), uc_error> {
+        debug_assert!(perm & (!Permission::ALL) == 0, "unexcepted permissions mask {}", perms);
+
+        self.uc.borrow_mut().mem_map(begin, (end - begin) as usize, perms)?;
+        self.add_mapinfo(MemRegion {begin,end,perms}, info.unwrap_or("[mapped]".to_string()));
+        Ok(())
+    }
+    pub fn write(&mut self,address: u64, bytes: impl AsRef<[u8]>) -> Result<(), uc_error> {
+        self.uc.borrow_mut().mem_write(address, bytes.as_ref())
+    }
+
+    fn add_mapinfo(&mut self, mem_info: MemRegion, label: String) {
+        self.map_info.push(MapInfo {info: mem_info, label});
+        self.map_info.sort_by_key(|info| info.info.begin);
     }
 }
 
@@ -73,14 +97,19 @@ pub struct Config {
     stack_address: u32,
     stack_size: u32,
     load_address: u32,
+    mmap_address: u32,
 }
 
 pub struct ElfLoader {
     config: Config,
+    stack_address: u32,
+    entrypoint: u32,
+    elf_mem_start: u32,
+    elf_entry: u32,
 }
 
 impl ElfLoader {
-    pub fn load(&self, binary: impl AsRef<[u8]>) -> Result<()> {
+    pub fn load<'a>(&self, binary: impl AsRef<[u8]>, memory: &mut MemoryManager<'a>) -> Result<(), errors::EmulatorError> {
         let b= binary.as_ref();
         let elf = goblin::elf::Elf::parse(b)?;
 
@@ -94,8 +123,7 @@ impl ElfLoader {
         };
         let load_address = self.config.load_address;
         let mut load_regions = Vec::new();
-        let unicorn  = unicorn_engine::Unicorn::new(Arch::MIPS, Mode::MIPS32|Mode::BIG_ENDIAN).unwrap();
-        for seg in load_segments {
+        for seg in &load_segments {
             let lbound = align(load_address + seg.p_vaddr, PAGE_SIZE) as u64;
             let ubound = align_up(load_address + seg.p_vaddr + seg.p_memsz, PAGE_SIZE) as u64;
             let perms = seg_perm_to_uc_prot(seg.p_flags);
@@ -125,11 +153,28 @@ impl ElfLoader {
                         });
                     }
                 } else if lbound < prev_region.end {
-                    bail!("invalid elf file");
+                    Err(goblin::error::Error::Malformed(format!("invalid elf file, segment intersect.")))?;
                 }
             }
         }
 
+        for region in load_regions {
+            memory.mem_map(region, None)?;
+        }
+
+        for seg in &load_segments {
+            let data = &b[seg.file_range()];
+            memory.write((load_address + seg.p_vaddr) as u64, data)?;
+        }
+
+        let (mem_start, mem_end) = (load_regions.first().unwrap().begin, load_regions.last().unwrap().end);
+
+        let entrypoint = load_address + elf.header.e_entry;
+        let elf_entry = entrypoint;
+
+        // note: 0x2000 is the size of [hook_mem]
+        let brk_address = mem_end + 0x2000;
+        memory.uc.borrow_mut().reg_write(unicorn_engine::RegisterMIPS::SP, self.stack_address as u64);
         Ok(())
     }
 }
