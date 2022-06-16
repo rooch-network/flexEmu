@@ -2,6 +2,7 @@ use goblin::elf::program_header::PT_LOAD;
 use unicorn_engine::unicorn_const::MemRegion;
 use crate::{align, align_up, errors, PAGE_SIZE, seg_perm_to_uc_prot};
 use crate::memory::MemoryManager;
+use crate::utils::{align, align_up, seg_perm_to_uc_prot};
 
 pub struct Config {
     stack_address: u32,

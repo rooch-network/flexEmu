@@ -5,6 +5,8 @@ use goblin::container::Endian;
 use unicorn_engine::{RegisterMIPS, Unicorn};
 use unicorn_engine::unicorn_const::Mode;
 use crate::{MemoryManager, RegisterManager};
+use crate::memory::MemoryManager;
+use crate::registers::RegisterManager;
 
 pub trait ArchT {
     fn endian(&self) -> Endian;
