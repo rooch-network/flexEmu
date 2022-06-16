@@ -1,6 +1,9 @@
+#![feature(mixed_integer_ops)]
+
 pub mod errors;
 pub mod arch;
 pub mod registers;
+pub mod cc;
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -19,6 +22,8 @@ pub struct Emulator<'a, Loader, Os> {
     loader: Loader,
     os: Os,
 }
+
+impl<'a, Loader, Os> Emulator<'a, Loader, Os>{}
 
 struct MapInfo {
     info: MemRegion,

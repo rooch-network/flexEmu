@@ -39,4 +39,9 @@ impl<'a> RegisterManager<'a> {
     pub fn set_sp(&mut self, value: u64) -> Result<(), uc_error> {
         self.write(self.sp, value)
     }
+    pub fn incr_sp(&mut self, delta: i64) -> Result<(), uc_error> {
+        let cur = self.sp().unwrap();
+        let new_sp = cur.checked_add_signed(delta).ok_or_else(|| uc_error::EXCEPTION)?;
+        self.write(self.sp, new_sp)
+    }
 }
