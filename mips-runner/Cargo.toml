@@ -13,4 +13,8 @@ unicorn-engine = { version = "2.0.0-rc7" }
 bytes = { version = "1.1.0" }
 byteorder = { version = "1.4.3" }
 thiserror = { version = "1.0.31" }
+lazy_static = { version = "1.4.0" }
+strum = { version = "0.24", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
 #xmas-elf = { version = "0.8.0" }

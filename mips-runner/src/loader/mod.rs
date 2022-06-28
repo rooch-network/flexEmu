@@ -1,7 +1,8 @@
 use crate::memory::Memory;
 use crate::registers::Registers;
 use crate::utils::{align, align_up, seg_perm_to_uc_prot};
-use crate::{align, align_up, errors, seg_perm_to_uc_prot, PAGE_SIZE};
+use crate::{errors, PAGE_SIZE};
+use anyhow::{anyhow, bail};
 use goblin::elf::program_header::PT_LOAD;
 use unicorn_engine::unicorn_const::MemRegion;
 
@@ -29,10 +30,13 @@ impl ElfLoader {
         let b = binary.as_ref();
         let elf = goblin::elf::Elf::parse(b)?;
 
-        anyhow::ensure!(
-            elf.header.e_type == goblin::elf::header::ET_EXEC,
-            "binary not exec"
-        );
+        if elf.header.e_type != goblin::elf::header::ET_EXEC {
+            return Err(anyhow!("binary not exec"))?;
+        }
+        // anyhow::ensure!(
+        //     elf.header.e_type == goblin::elf::header::ET_EXEC,
+        //
+        // )?;
 
         // get list of loadable segments which will be loaded into memory.
         let load_segments = {
@@ -47,8 +51,11 @@ impl ElfLoader {
         let load_address = self.config.load_address;
         let mut load_regions = Vec::new();
         for seg in &load_segments {
-            let lbound = align(load_address + seg.p_vaddr, PAGE_SIZE) as u64;
-            let ubound = align_up(load_address + seg.p_vaddr + seg.p_memsz, PAGE_SIZE) as u64;
+            let lbound = align(load_address + seg.p_vaddr as u32, PAGE_SIZE) as u64;
+            let ubound = align_up(
+                load_address + seg.p_vaddr as u32 + seg.p_memsz as u32,
+                PAGE_SIZE,
+            ) as u64;
             let perms = seg_perm_to_uc_prot(seg.p_flags);
             if load_regions.is_empty() {
                 load_regions.push(MemRegion {
@@ -86,13 +93,13 @@ impl ElfLoader {
             }
         }
 
-        for region in load_regions {
-            memory.mem_map(region, None)?;
+        for region in &load_regions {
+            memory.mem_map(region.clone(), None)?;
         }
 
         for seg in &load_segments {
             let data = &b[seg.file_range()];
-            Memory::write(memory, (load_address + seg.p_vaddr) as u64, data)?;
+            Memory::write(memory, load_address as u64 + seg.p_vaddr, data)?;
         }
 
         let (mem_start, mem_end) = (
@@ -100,7 +107,7 @@ impl ElfLoader {
             load_regions.last().unwrap().end,
         );
 
-        let entrypoint = load_address + elf.header.e_entry;
+        let entrypoint = load_address + elf.header.e_entry as u32;
         let elf_entry = entrypoint;
 
         // note: 0x2000 is the size of [hook_mem]

@@ -52,12 +52,13 @@ impl<'a> CallingConventionCommon<'a> {
         ret_addr_on_stack: bool,
         arch: Rc<RefCell<Core<'a>>>,
     ) -> Self {
+        let pointersize = arch.borrow().pointersize();
         Self {
             retreg: ret_reg,
             argregs: arg_regs,
             shadow,
             retaddr_on_stack: ret_addr_on_stack,
-            address_size: arch.borrow().pointersize(),
+            address_size: pointersize,
             arch,
         }
     }
