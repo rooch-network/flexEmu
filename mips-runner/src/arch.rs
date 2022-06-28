@@ -1,19 +1,17 @@
-use std::cell::RefCell;
-use std::ops::Deref;
-use std::rc::Rc;
-use goblin::container::Endian;
-use unicorn_engine::{RegisterMIPS, Unicorn};
-use unicorn_engine::unicorn_const::Mode;
-use crate::{MemoryManager, RegisterManager};
+use crate::data::Data;
 use crate::memory::MemoryManager;
-use crate::registers::RegisterManager;
+use crate::registers::RegisterInfo;
+use goblin::container::Endian;
+use unicorn_engine::unicorn_const::Mode;
+use unicorn_engine::{RegisterMIPS, Unicorn};
 
 pub trait ArchT {
     fn endian(&self) -> Endian;
     fn bit(&self) -> u64;
-    fn get_uc<'a>(&self) -> Unicorn<'a, ()>;
     fn pc_reg_id(&self) -> i32;
     fn sp_reg_id(&self) -> i32;
+    fn arch(&self) -> unicorn_engine::unicorn_const::Arch;
+    fn mode(&self) -> Mode;
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -34,30 +32,31 @@ impl ArchT for ArchMIPS {
     fn endian(&self) -> Endian {
         self.endian
     }
-
-    fn bit(&self) -> u64 {
-        if self.mode32 {
-            32
-        }else {
-            64
-        }
-
+    fn arch(&self) -> unicorn_engine::unicorn_const::Arch {
+        unicorn_engine::unicorn_const::Arch::MIPS
     }
-
-    fn get_uc<'a>(&self) -> Unicorn<'a, ()> {
+    fn mode(&self) -> Mode {
         let mut mode = if self.mode32 {
             Mode::MODE_32
         } else {
             Mode::MODE_64
-
         };
         match self.endian {
-            Endian::Little => { mode |= Mode::LITTLE_ENDIAN;},
+            Endian::Little => {
+                mode |= Mode::LITTLE_ENDIAN;
+            }
             Endian::Big => {
                 mode |= Mode::BIG_ENDIAN;
             }
+        };
+        mode
+    }
+    fn bit(&self) -> u64 {
+        if self.mode32 {
+            32
+        } else {
+            64
         }
-        Unicorn::new(unicorn_engine::unicorn_const::Arch::MIPS, mode).unwrap()
     }
 
     fn pc_reg_id(&self) -> i32 {
@@ -69,32 +68,31 @@ impl ArchT for ArchMIPS {
     }
 }
 
-pub struct Arch<'a> {
-    uc: Rc<RefCell<Unicorn<'a, ()>>>,
-    pub(crate) mem: MemoryManager<'a>,
-    pub(crate) registers: RegisterManager<'a>,
+pub struct Core<'a> {
+    uc: Unicorn<'a, Data>,
     endian: Endian,
     bits: u64,
 }
 
-impl<'a> Arch<'a> {
+impl<'a> Core<'a> {
     pub fn new(arch: impl ArchT) -> Self {
-        let uc = Rc::new(RefCell::new(arch.get_uc()));
-        let mem = MemoryManager::new(uc.clone());
-        let registers = RegisterManager::new(uc.clone(), arch.pc_reg_id(), arch.sp_reg_id());
+        let data = Data {
+            register_info: RegisterInfo::new(arch.pc_reg_id(), arch.sp_reg_id()),
+            memories: MemoryManager::default(),
+        };
+        let uc = Unicorn::new_with_data(arch.arch(), arch.mode(), data).unwrap();
         Self {
             uc,
-            mem,
-            registers,
             endian: arch.endian(),
-            bits: arch.bit()
+            bits: arch.bit(),
         }
     }
-    pub fn uc_mut(&mut self,) -> &mut Unicorn<'a, ()> {
-        self.uc.get_mut()
+    pub fn uc_mut(&mut self) -> &mut Unicorn<'a, Data> {
+        &mut self.uc
     }
-    pub fn uc(&self) -> &Unicorn<'a, ()> {
-        self.uc.borrow().deref()
+
+    pub fn uc(&self) -> &Unicorn<'a, Data> {
+        &self.uc
     }
     // pub fn registers_mut(&mut self,) -> &mut Unicorn<'a, ()> {
     //     self.uc.get_mut()
@@ -108,7 +106,9 @@ impl<'a> Arch<'a> {
     pub fn endian(&self) -> Endian {
         self.endian
     }
-
+    pub fn arch(&self) -> unicorn_engine::unicorn_const::Arch {
+        self.uc.get_arch()
+    }
     pub fn stack_push(&mut self, value: u64) -> u64 {
         unimplemented!()
     }

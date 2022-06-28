@@ -1,8 +1,8 @@
+use crate::arch::Core;
+use crate::registers::Registers;
 use std::cell::RefCell;
-use std::ops::Neg;
 use std::rc::Rc;
 use unicorn_engine::unicorn_const::uc_error;
-use crate::arch::Arch;
 
 pub trait CallingConvention {
     /// Get the number of slots allocated for an argument of width `argbits`.
@@ -20,7 +20,7 @@ pub trait CallingConvention {
     // Returns: raw value
     fn get_raw_param(&self, slot: u32, argbits: Option<u32>) -> u32;
     fn set_raw_param(&self, slot: u32, value: u32, argbits: Option<u32>);
-    fn get_return_value(&self)-> u32;
+    fn get_return_value(&self) -> u32;
     fn set_return_value(&self, val: u32);
     fn set_return_address(&self, addr: u32);
     fn reserve(&self, nslots: u32);
@@ -30,7 +30,7 @@ pub trait CallingConvention {
     //
     // 		Args:
     // 			nslots: number of arg slots to reserve
-    fn unwind(&self, nslots: u32)->u32;
+    fn unwind(&self, nslots: u32) -> u32;
 }
 
 pub struct CallingConventionCommon<'a> {
@@ -41,11 +41,17 @@ pub struct CallingConventionCommon<'a> {
     /// native address size in bytes
     address_size: u64,
 
-    arch: Rc<RefCell<Arch<'a>>>,
+    arch: Rc<RefCell<Core<'a>>>,
 }
 
 impl<'a> CallingConventionCommon<'a> {
-    pub fn new(ret_reg: i32, arg_regs: Vec<i32>, shadow: u32, ret_addr_on_stack: bool, arch: Rc<RefCell<Arch<'a>>>) -> Self {
+    pub fn new(
+        ret_reg: i32,
+        arg_regs: Vec<i32>,
+        shadow: u32,
+        ret_addr_on_stack: bool,
+        arch: Rc<RefCell<Core<'a>>>,
+    ) -> Self {
         Self {
             retreg: ret_reg,
             argregs: arg_regs,
@@ -55,18 +61,21 @@ impl<'a> CallingConventionCommon<'a> {
             arch,
         }
     }
-    pub fn get_return_value(&self) -> Result<u64,uc_error> {
-        self.arch.borrow().registers.read(self.retreg)
+    pub fn get_return_value(&self) -> Result<u64, uc_error> {
+        self.arch.borrow().uc().read(self.retreg)
     }
     pub fn set_return_value(&mut self, val: u64) -> Result<(), uc_error> {
-        self.arch.borrow_mut().registers.write(self.retreg, val)
+        self.arch.borrow_mut().uc_mut().write(self.retreg, val)
     }
 
     pub fn reserve(&mut self, nslots: usize) -> Result<(), uc_error> {
         assert!(nslots < self.argregs.len(), "too many slots");
         // count how many slots should be reserved on the stack
-        let si = self.argregs[0..nslots].iter().filter(|s| s.is_negative()).count() as u32;
-        let sp_change= -((self.shadow + si) as i64) * (self.address_size as i64);
-        self.arch.borrow_mut().registers.incr_sp(sp_change)
+        let si = self.argregs[0..nslots]
+            .iter()
+            .filter(|s| s.is_negative())
+            .count() as u32;
+        let sp_change = -((self.shadow + si) as i64) * (self.address_size as i64);
+        self.arch.borrow_mut().uc_mut().incr_sp(sp_change)
     }
 }
