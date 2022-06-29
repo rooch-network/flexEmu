@@ -1,4 +1,5 @@
 use goblin::elf::program_header::{PF_R, PF_W, PF_X};
+use std::fmt::Pointer;
 use unicorn_engine::unicorn_const::Permission;
 
 /// Align a value down to the specified alignment boundary. If `value` is already

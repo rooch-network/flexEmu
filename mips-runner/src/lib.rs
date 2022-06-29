@@ -1,4 +1,8 @@
 #![feature(mixed_integer_ops)]
+#![feature(generic_const_exprs)]
+#![feature(adt_const_params)]
+
+extern crate core;
 
 pub mod arch;
 pub mod cc;

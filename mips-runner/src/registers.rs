@@ -6,8 +6,10 @@ pub trait Registers {
     fn read(&self, reg: impl Into<i32>) -> Result<u64, uc_error>;
     fn write(&mut self, reg: impl Into<i32>, value: u64) -> Result<(), uc_error>;
     fn pc(&self) -> Result<u64, uc_error>;
-    fn sp(&self) -> Result<u64, uc_error>;
     fn set_pc(&mut self, value: u64) -> Result<(), uc_error>;
+}
+pub trait StackRegister {
+    fn sp(&self) -> Result<u64, uc_error>;
     fn set_sp(&mut self, value: u64) -> Result<(), uc_error>;
     fn incr_sp(&mut self, delta: i64) -> Result<(), uc_error> {
         let cur = self.sp()?;
@@ -15,6 +17,17 @@ pub trait Registers {
             .checked_add_signed(delta)
             .ok_or_else(|| uc_error::EXCEPTION)?;
         self.set_sp(new_sp)
+    }
+}
+impl<'a> StackRegister for Unicorn<'a, Data> {
+    fn sp(&self) -> Result<u64, uc_error> {
+        let sp_reg = self.get_data().register_info.sp;
+        self.read(sp_reg)
+    }
+
+    fn set_sp(&mut self, value: u64) -> Result<(), uc_error> {
+        let sp_reg = self.get_data().register_info.sp;
+        self.write(sp_reg, value)
     }
 }
 
@@ -30,24 +43,15 @@ impl<'a> Registers for Unicorn<'a, Data> {
         self.read(pc_reg)
     }
 
-    fn sp(&self) -> Result<u64, uc_error> {
-        let sp_reg = self.get_data().register_info.sp;
-        self.read(sp_reg)
-    }
-
     fn set_pc(&mut self, value: u64) -> Result<(), uc_error> {
         let pc_reg = self.get_data().register_info.pc;
         self.write(pc_reg, value)
     }
-    fn set_sp(&mut self, value: u64) -> Result<(), uc_error> {
-        let sp_reg = self.get_data().register_info.sp;
-        self.write(sp_reg, value)
-    }
 }
 
 pub struct RegisterInfo {
-    pc: i32,
-    sp: i32,
+    pub(crate) pc: i32,
+    pub(crate) sp: i32,
 }
 
 impl RegisterInfo {

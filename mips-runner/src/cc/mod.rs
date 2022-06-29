@@ -1,5 +1,5 @@
 use crate::arch::Core;
-use crate::registers::Registers;
+use crate::registers::{Registers, StackRegister};
 use std::cell::RefCell;
 use std::rc::Rc;
 use unicorn_engine::unicorn_const::uc_error;
