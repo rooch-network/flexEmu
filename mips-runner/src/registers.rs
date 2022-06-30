@@ -18,7 +18,7 @@ pub trait StackRegister {
         let cur = self.sp()?;
         let new_sp = cur
             .checked_add_signed(delta)
-            .ok_or_else(|| uc_error::EXCEPTION)?;
+            .ok_or(uc_error::EXCEPTION)?;
         self.set_sp(new_sp)?;
         Ok(new_sp)
     }

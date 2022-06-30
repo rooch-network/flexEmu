@@ -2,6 +2,7 @@ use crate::data::Data;
 use anyhow::Result;
 
 use crate::arch::{ArchT, Packer};
+use crate::PAGE_SIZE;
 use unicorn_engine::unicorn_const::{uc_error, MemRegion, Permission};
 use unicorn_engine::Unicorn;
 
@@ -28,6 +29,9 @@ impl MemoryManager {
 }
 
 pub trait Memory {
+    fn pagesize(&self) -> u64 {
+        PAGE_SIZE as u64
+    }
     fn mem_map(&mut self, region: MemRegion, info: Option<String>) -> Result<(), uc_error>;
     fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, uc_error>;
     fn read_ptr(&self, address: u64, pointersize: Option<PointerSizeT>) -> Result<u64, uc_error>;
@@ -64,7 +68,7 @@ impl<'a> Memory for Unicorn<'a, Data> {
         self.mem_map(begin, (end - begin) as usize, perms)?;
         self.get_data_mut().memories.add_mapinfo(
             MemRegion { begin, end, perms },
-            info.unwrap_or("[mapped]".to_string()),
+            info.unwrap_or_else(|| "[mapped]".to_string()),
         );
         Ok(())
     }
@@ -75,7 +79,7 @@ impl<'a> Memory for Unicorn<'a, Data> {
         self.mem_read_as_vec(addr, len)
     }
     fn read_ptr(&self, address: u64, pointersize: Option<PointerSizeT>) -> Result<u64, uc_error> {
-        let pointersize = pointersize.unwrap_or(self.pointer_size());
+        let pointersize = pointersize.unwrap_or_else(|| self.pointer_size());
         let data = Memory::read(self, address, pointersize as usize)?;
         let packer = Packer::new(self.get_data().endian(), pointersize);
         Ok(packer.unpack(data))
@@ -87,7 +91,7 @@ impl<'a> Memory for Unicorn<'a, Data> {
         value: u64,
         pointersize: Option<PointerSizeT>,
     ) -> Result<(), uc_error> {
-        let pointersize = pointersize.unwrap_or(self.pointer_size());
+        let pointersize = pointersize.unwrap_or_else(|| self.pointer_size());
 
         let packer = Packer::new(self.get_data().endian(), pointersize);
         Memory::write(self, address, packer.pack(value))

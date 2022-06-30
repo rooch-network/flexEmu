@@ -6,6 +6,7 @@ extern crate core;
 
 pub mod arch;
 pub mod cc;
+pub mod config;
 pub mod data;
 pub mod emulator;
 pub mod errors;

@@ -4,22 +4,57 @@ use crate::memory::Memory;
 use crate::registers::Registers;
 use crate::utils::{align, align_up, seg_perm_to_uc_prot};
 use crate::{errors, PAGE_SIZE};
-use anyhow::{anyhow, bail};
-use byteorder::BigEndian;
+use anyhow::anyhow;
 use bytes::{BufMut, BytesMut};
 use goblin::container::Endian;
 use goblin::elf::program_header::PT_LOAD;
 use goblin::elf::Elf;
 use log::debug;
+use serde::Deserialize;
+use serde::Serialize;
+use std::collections::BTreeMap;
 use unicorn_engine::unicorn_const::{uc_error, MemRegion, Permission};
-
-pub struct Config {
-    stack_address: u64,
-    stack_size: u64,
-    load_address: u64,
-    mmap_address: u64,
+/// auxiliary vector types
+/// see: https://man7.org/linux/man-pages/man3/getauxval.3.html
+#[allow(non_camel_case_types)]
+#[repr(C)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
+pub enum AUXV {
+    AT_NULL = 0,
+    AT_IGNORE = 1,
+    AT_EXECFD = 2,
+    AT_PHDR = 3,
+    AT_PHENT = 4,
+    AT_PHNUM = 5,
+    AT_PAGESZ = 6,
+    AT_BASE = 7,
+    AT_FLAGS = 8,
+    AT_ENTRY = 9,
+    AT_NOTELF = 10,
+    AT_UID = 11,
+    AT_EUID = 12,
+    AT_GID = 13,
+    AT_EGID = 14,
+    AT_PLATFORM = 15,
+    AT_HWCAP = 16,
+    AT_CLKTCK = 17,
+    AT_SECURE = 23,
+    AT_BASE_PLATFORM = 24,
+    AT_RANDOM = 25,
+    AT_HWCAP2 = 26,
+    AT_EXECFN = 31,
 }
 
+#[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Debug)]
+pub struct Config {
+    pub stack_address: u64,
+    pub stack_size: u64,
+    pub load_address: u64,
+    pub mmap_address: u64,
+}
+
+/// Elf binary loader.
+/// See [How programs get run: ELF binaries](https://lwn.net/Articles/631631/).
 pub struct ElfLoader {
     config: Config,
     stack_address: u32,
@@ -27,6 +62,7 @@ pub struct ElfLoader {
     elf_mem_start: u32,
     elf_entry: u32,
 }
+
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct LoadResult {
     entrypoint: u64,
@@ -93,12 +129,15 @@ impl ElfLoader {
         // init stack address
         uc.set_sp(stack_address)?;
         // set elf table
-        Self::load_elf_table(uc, argv)?;
+        Self::load_elf_table(uc, &elf, &load_result, argv, BTreeMap::default())?;
         Ok(load_result)
     }
     fn load_elf_table(
         uc: &mut (impl Memory + Registers + Stack + ArchT),
-        argv: Vec<String>,
+        elf: &Elf,
+        load_result: &LoadResult,
+        argv: Vec<String>, // argv.len must >0
+        envs: BTreeMap<String, String>,
     ) -> Result<(), uc_error> {
         let packer = Packer::new(uc.endian(), uc.pointer_size());
         let mut elf_table = BytesMut::new();
@@ -114,23 +153,79 @@ impl ElfLoader {
         elf_table.put_slice(&packer.pack(0));
 
         // write env
-        // TODO: fill me
+        for (k, v) in &envs {
+            uc.aligned_push_str(&format!("{}={}", k, v))?;
+            elf_table.put_slice(&packer.pack(uc.sp()?));
+        }
         // add a nullptr sentinel
         elf_table.put_slice(&packer.pack(0));
 
-        // TODO: rewrite to stack_write_bytes
-        // write elf table
-        {
-            let new_stack_addr = align((uc.sp()? as usize - elf_table.len()) as u32, 0x10) as u64;
-            Memory::write(uc, new_stack_addr, elf_table.as_ref())?;
-            uc.set_sp(new_stack_addr)?;
+        let execfn = {
+            uc.aligned_push_str(argv.first().map(|s| s.as_str()).unwrap_or_else(|| "main"))?;
+            uc.sp()?
+        };
+        let randdata_addr = {
+            uc.aligned_push_bytes(&[10u8; 16], None)?;
+            uc.sp()?
+        };
+        let cpustr_addr = {
+            uc.aligned_push_str(&format!("{:?}", uc.arch()))?;
+            uc.sp()?
+        };
+        let aux_entries = vec![
+            (
+                AUXV::AT_HWCAP,
+                if uc.pointer_size() == 8 {
+                    0x078bfbfd
+                } else if uc.pointer_size() == 4 {
+                    if uc.endian() == Endian::Big {
+                        // FIXME: considering this is a 32 bits value, it is not a big-endian version of the
+                        // value above like it is meant to be, since the one above has an implied leading zero
+                        // byte (i.e. 0x001fb8d7) which the EB value didn't take into account
+                        0xd7b81f
+                    } else {
+                        0x1fb8d7
+                    }
+                } else {
+                    unimplemented!()
+                },
+            ),
+            (AUXV::AT_PAGESZ, uc.pagesize()),
+            (AUXV::AT_CLKTCK, 100),
+            // following three: store aux vector data for gdb use
+            (
+                AUXV::AT_PHDR,
+                elf.header.e_phoff + load_result.elf_mem_start,
+            ),
+            (AUXV::AT_PHENT, elf.header.e_phentsize as u64),
+            (AUXV::AT_PHNUM, elf.header.e_phnum as u64),
+            (AUXV::AT_BASE, 0),
+            (AUXV::AT_FLAGS, 0),
+            (AUXV::AT_ENTRY, load_result.elf_entry),
+            // (AUXV.AT_UID, self.ql.os.uid),
+            // (AUXV.AT_EUID, self.ql.os.euid),
+            // (AUXV.AT_GID, self.ql.os.gid),
+            // (AUXV.AT_EGID, self.ql.os.egid),
+            (AUXV::AT_SECURE, 0),
+            (AUXV::AT_RANDOM, randdata_addr),
+            (AUXV::AT_HWCAP2, 0),
+            (AUXV::AT_EXECFN, execfn),
+            (AUXV::AT_PLATFORM, cpustr_addr),
+            (AUXV::AT_NULL, 0),
+        ];
+        for (k, v) in aux_entries {
+            elf_table.extend_from_slice(&packer.pack(k as u64));
+            elf_table.extend_from_slice(&packer.pack(v));
         }
+
+        // write elf table
+        Stack::aligned_push_bytes(uc, elf_table.as_ref(), Some(0x10))?;
 
         Ok(())
     }
 
     fn load_elf_segments(
-        uc: &mut (impl Memory),
+        uc: &mut impl Memory,
         binary: impl AsRef<[u8]>,
         elf: &Elf,
         load_address: u64,
@@ -181,9 +276,9 @@ impl ElfLoader {
                         });
                     }
                 } else if lbound < prev_region.end {
-                    Err(goblin::error::Error::Malformed(format!(
-                        "invalid elf file, segment intersect."
-                    )))?;
+                    Err(goblin::error::Error::Malformed(
+                        "invalid elf file, segment intersect.".to_string(),
+                    ))?;
                 }
             }
         }

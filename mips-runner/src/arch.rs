@@ -4,7 +4,7 @@ use crate::registers::{RegisterInfo, Registers, StackRegister};
 use crate::utils::align;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use goblin::container::Endian;
-use std::thread::available_parallelism;
+
 use unicorn_engine::unicorn_const::{uc_error, Mode};
 use unicorn_engine::{RegisterMIPS, Unicorn};
 
@@ -80,6 +80,11 @@ impl ArchT for ArchMIPS {
 
 pub struct Core<'a> {
     uc: Unicorn<'a, Data>,
+}
+impl<'a> Into<Unicorn<'a, Data>> for Core<'a> {
+    fn into(self) -> Unicorn<'a, Data> {
+        self.uc
+    }
 }
 
 impl<'a> Core<'a> {
@@ -167,7 +172,7 @@ pub trait Stack: StackRegister + Memory + ArchT {
         let addr = self
             .sp()?
             .checked_add_signed(offset)
-            .ok_or_else(|| uc_error::EXCEPTION)?;
+            .ok_or(uc_error::EXCEPTION)?;
         let v = self.read_ptr(addr, None)?;
         Ok(v)
     }
@@ -175,7 +180,7 @@ pub trait Stack: StackRegister + Memory + ArchT {
         let addr = self
             .sp()?
             .checked_add_signed(offset)
-            .ok_or_else(|| uc_error::EXCEPTION)?;
+            .ok_or(uc_error::EXCEPTION)?;
         self.write_ptr(addr, value, None)?;
         Ok(())
     }

@@ -1,12 +1,12 @@
 use crate::arch::Core;
 use crate::registers::Registers;
-use maplit::btreemap;
+
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use unicorn_engine::unicorn_const::Arch::MIPS;
 use unicorn_engine::unicorn_const::{uc_error, Arch};
 use unicorn_engine::{
-    RegisterARM, RegisterARM64, RegisterMIPS, RegisterPPC, RegisterRISCV, RegisterX86, Unicorn,
+    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, Unicorn,
 };
 
 use crate::data::Data;
@@ -61,7 +61,7 @@ impl OsLinux {
         if let Some(call) = syscall {
             let handler = self.inner.syscalls.get(&call);
 
-            if let Some(h) = handler {
+            if let Some(_h) = handler {
                 //h.call(uc);
             }
         }
