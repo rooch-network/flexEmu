@@ -10,8 +10,8 @@ pub struct Data {
 }
 
 impl Data {
-    pub fn pointersize(&self) -> u64 {
-        self.arch_info.bit / 8
+    pub fn pointersize(&self) -> u8 {
+        self.arch_info.pointer_size
     }
     pub fn endian(&self) -> Endian {
         self.arch_info.endian

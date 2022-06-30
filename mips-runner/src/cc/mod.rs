@@ -1,4 +1,5 @@
-use crate::arch::Core;
+use crate::arch::{ArchT, Core};
+use crate::memory::PointerSizeT;
 use crate::registers::{Registers, StackRegister};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -39,7 +40,7 @@ pub struct CallingConventionCommon<'a> {
     shadow: u32,
     retaddr_on_stack: bool,
     /// native address size in bytes
-    address_size: u64,
+    address_size: PointerSizeT,
 
     arch: Rc<RefCell<Core<'a>>>,
 }
@@ -52,7 +53,7 @@ impl<'a> CallingConventionCommon<'a> {
         ret_addr_on_stack: bool,
         arch: Rc<RefCell<Core<'a>>>,
     ) -> Self {
-        let pointersize = arch.borrow().pointersize();
+        let pointersize = arch.borrow().uc().pointer_size();
         Self {
             retreg: ret_reg,
             argregs: arg_regs,
@@ -77,6 +78,7 @@ impl<'a> CallingConventionCommon<'a> {
             .filter(|s| s.is_negative())
             .count() as u32;
         let sp_change = -((self.shadow + si) as i64) * (self.address_size as i64);
-        self.arch.borrow_mut().uc_mut().incr_sp(sp_change)
+        self.arch.borrow_mut().uc_mut().incr_sp(sp_change)?;
+        Ok(())
     }
 }

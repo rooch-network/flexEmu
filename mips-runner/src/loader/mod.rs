@@ -100,13 +100,13 @@ impl ElfLoader {
         uc: &mut (impl Memory + Registers + Stack + ArchT),
         argv: Vec<String>,
     ) -> Result<(), uc_error> {
-        let packer = Packer::new(uc.endian(), (uc.bit() / 8) as usize);
+        let packer = Packer::new(uc.endian(), uc.pointer_size());
         let mut elf_table = BytesMut::new();
         // write argc
         elf_table.put_slice(&packer.pack(argv.len() as u64));
         // write argv
         for s in &argv {
-            uc.push_str(s)?;
+            uc.aligned_push_str(s)?;
             let stack_addr = uc.sp()?;
             elf_table.put_slice(&packer.pack(stack_addr));
         }

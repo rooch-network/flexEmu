@@ -11,12 +11,16 @@ pub trait Registers {
 pub trait StackRegister {
     fn sp(&self) -> Result<u64, uc_error>;
     fn set_sp(&mut self, value: u64) -> Result<(), uc_error>;
-    fn incr_sp(&mut self, delta: i64) -> Result<(), uc_error> {
+
+    /// increment stack pointer by `delta`.
+    /// Return new stack pointer
+    fn incr_sp(&mut self, delta: i64) -> Result<u64, uc_error> {
         let cur = self.sp()?;
         let new_sp = cur
             .checked_add_signed(delta)
             .ok_or_else(|| uc_error::EXCEPTION)?;
-        self.set_sp(new_sp)
+        self.set_sp(new_sp)?;
+        Ok(new_sp)
     }
 }
 impl<'a> StackRegister for Unicorn<'a, Data> {
