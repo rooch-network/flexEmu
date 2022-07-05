@@ -1,5 +1,8 @@
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use goblin::container::Endian;
 use goblin::elf::program_header::{PF_R, PF_W, PF_X};
 
+use crate::memory::PointerSizeT;
 use unicorn_engine::unicorn_const::Permission;
 
 /// Align a value down to the specified alignment boundary. If `value` is already
@@ -38,6 +41,40 @@ pub fn seg_perm_to_uc_prot(perm: u32) -> Permission {
     }
 
     prot
+}
+pub struct Packer {
+    endian: Endian,
+    pointer_size: usize,
+}
+
+impl Packer {
+    pub fn new(endian: Endian, pointer_size: PointerSizeT) -> Self {
+        Self {
+            endian,
+            pointer_size: pointer_size as usize,
+        }
+    }
+    pub fn pack(&self, v: u64) -> Vec<u8> {
+        let mut buf = BytesMut::new();
+        match self.endian {
+            Endian::Little => {
+                buf.put_uint_le(v, self.pointer_size);
+            }
+
+            Endian::Big => {
+                buf.put_uint(v, self.pointer_size);
+            }
+        }
+        buf.to_vec()
+    }
+    pub fn unpack(&self, data: Vec<u8>) -> u64 {
+        let mut data = Bytes::from(data);
+
+        match self.endian {
+            Endian::Little => data.get_uint_le(self.pointer_size),
+            Endian::Big => data.get_uint(self.pointer_size),
+        }
+    }
 }
 
 #[cfg(test)]

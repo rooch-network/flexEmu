@@ -1,7 +1,9 @@
 use crate::data::Data;
 use anyhow::Result;
 
-use crate::arch::{ArchT, Packer};
+use crate::arch::ArchT;
+use crate::core::Core;
+use crate::utils::Packer;
 use crate::PAGE_SIZE;
 use unicorn_engine::unicorn_const::{uc_error, MemRegion, Permission};
 use unicorn_engine::Unicorn;
@@ -53,7 +55,7 @@ pub trait Memory {
     //fn align_up(&self, value: u64, alignment: Option<usize>) -> u64;
 }
 
-impl<'a> Memory for Unicorn<'a, Data> {
+impl<'a, A: ArchT> Memory for Core<'a, A> {
     fn mem_map(
         &mut self,
         MemRegion { begin, end, perms }: MemRegion,
@@ -65,7 +67,7 @@ impl<'a> Memory for Unicorn<'a, Data> {
             perms
         );
 
-        self.mem_map(begin, (end - begin) as usize, perms)?;
+        Unicorn::mem_map(self, begin, (end - begin) as usize, perms)?;
         self.get_data_mut().memories.add_mapinfo(
             MemRegion { begin, end, perms },
             info.unwrap_or_else(|| "[mapped]".to_string()),
@@ -81,7 +83,7 @@ impl<'a> Memory for Unicorn<'a, Data> {
     fn read_ptr(&self, address: u64, pointersize: Option<PointerSizeT>) -> Result<u64, uc_error> {
         let pointersize = pointersize.unwrap_or_else(|| self.pointer_size());
         let data = Memory::read(self, address, pointersize as usize)?;
-        let packer = Packer::new(self.get_data().endian(), pointersize);
+        let packer = Packer::new(self.endian(), pointersize);
         Ok(packer.unpack(data))
     }
 
@@ -93,7 +95,7 @@ impl<'a> Memory for Unicorn<'a, Data> {
     ) -> Result<(), uc_error> {
         let pointersize = pointersize.unwrap_or_else(|| self.pointer_size());
 
-        let packer = Packer::new(self.get_data().endian(), pointersize);
+        let packer = Packer::new(self.endian(), pointersize);
         Memory::write(self, address, packer.pack(value))
     }
 }

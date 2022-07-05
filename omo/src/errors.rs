@@ -15,3 +15,5 @@ impl From<uc_error> for EmulatorError {
         Self::UcError(e)
     }
 }
+
+pub type Result<T> = std::result::Result<T, EmulatorError>;

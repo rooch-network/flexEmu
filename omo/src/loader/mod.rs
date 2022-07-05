@@ -1,8 +1,9 @@
-use crate::arch::{ArchT, Packer, Stack};
+use crate::arch::ArchT;
 use crate::errors::EmulatorError;
 use crate::memory::Memory;
 use crate::registers::Registers;
-use crate::utils::{align, align_up, seg_perm_to_uc_prot};
+use crate::stack::Stack;
+use crate::utils::{align, align_up, seg_perm_to_uc_prot, Packer};
 use crate::{errors, PAGE_SIZE};
 use anyhow::anyhow;
 use bytes::{BufMut, BytesMut};
@@ -14,6 +15,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use unicorn_engine::unicorn_const::{uc_error, MemRegion, Permission};
+
 /// auxiliary vector types
 /// see: https://man7.org/linux/man-pages/man3/getauxval.3.html
 #[allow(non_camel_case_types)]

@@ -1,4 +1,4 @@
-use crate::arch::Core;
+use crate::arch::{ArchT, Core};
 use crate::registers::Registers;
 
 use std::collections::{BTreeMap, HashMap};
@@ -29,10 +29,10 @@ pub struct OsLinux {
 
 struct OsLinuxInner {
     syscall_table: HashMap<u8, BTreeMap<u64, SysCalls>>,
-    syscalls: HashMap<SysCalls, Box<dyn SysCallT<4>>>,
+    //syscalls: HashMap<SysCalls, Box<dyn SysCallT<4>>>,
 }
 impl OsLinux {
-    pub fn load<'a>(&self, arch: &mut Core<'a>) -> Result<(), uc_error> {
+    pub fn load<'a, A: ArchT>(&self, arch: &mut Core<'a, A>) -> Result<(), uc_error> {
         arch.uc_mut().add_intr_hook({
             let this = self.clone();
             move |uc, signal| {
@@ -42,7 +42,7 @@ impl OsLinux {
         Ok(())
     }
 
-    fn syscall_hook(&self, uc: &mut Unicorn<Data>, signal: u32) {
+    fn syscall_hook<A: ArchT>(&self, uc: &mut Unicorn<Data<A>>, signal: u32) {
         let intr_signal = match uc.get_arch() {
             MIPS => 17,
             _ => unimplemented!(),
@@ -58,13 +58,13 @@ impl OsLinux {
             .get(&ar)
             .and_then(|m| m.get(&syscall))
             .cloned();
-        if let Some(call) = syscall {
-            let handler = self.inner.syscalls.get(&call);
-
-            if let Some(_h) = handler {
-                //h.call(uc);
-            }
-        }
+        // if let Some(call) = syscall {
+        //     let handler = self.inner.syscalls.get(&call);
+        //
+        //     if let Some(_h) = handler {
+        //         //h.call(uc);
+        //     }
+        // }
     }
 }
 fn syscall_id_reg(arch: Arch) -> i32 {
@@ -82,14 +82,8 @@ fn get_syscall(arch: Arch, registers: &impl Registers) -> Result<u64, uc_error> 
     registers.read(syscall_id_reg(arch))
 }
 
-pub trait SysCallT<const A: usize> {
-    //const T: SysCalls;
-    // const A: usize;
-    fn call<'a>(&self, arch: &mut Unicorn<'a, Data>, params: &[u64; A]) -> i64;
-}
-
-pub trait LinuxSysCalls {
-    fn write<'a>(&self, arch: &mut Unicorn<'a, Data>, fd: i32, buf: u64, count: usize) -> isize;
+pub trait LinuxSysCalls<A: ArchT> {
+    fn write<'a>(&self, arch: &mut Unicorn<'a, Data<A>>, fd: i32, buf: u64, count: usize) -> isize;
 }
 //
 // pub struct SysCallWrite;

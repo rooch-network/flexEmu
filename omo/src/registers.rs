@@ -1,3 +1,4 @@
+use crate::core::Core;
 use crate::data::Data;
 use unicorn_engine::unicorn_const::uc_error;
 use unicorn_engine::Unicorn;
@@ -16,14 +17,12 @@ pub trait StackRegister {
     /// Return new stack pointer
     fn incr_sp(&mut self, delta: i64) -> Result<u64, uc_error> {
         let cur = self.sp()?;
-        let new_sp = cur
-            .checked_add_signed(delta)
-            .ok_or(uc_error::EXCEPTION)?;
+        let new_sp = cur.checked_add_signed(delta).ok_or(uc_error::EXCEPTION)?;
         self.set_sp(new_sp)?;
         Ok(new_sp)
     }
 }
-impl<'a> StackRegister for Unicorn<'a, Data> {
+impl<'a, A> StackRegister for Core<'a, A> {
     fn sp(&self) -> Result<u64, uc_error> {
         let sp_reg = self.get_data().register_info.sp;
         self.read(sp_reg)
@@ -35,7 +34,7 @@ impl<'a> StackRegister for Unicorn<'a, Data> {
     }
 }
 
-impl<'a> Registers for Unicorn<'a, Data> {
+impl<'a, A> Registers for Core<'a, A> {
     fn read(&self, reg: impl Into<i32>) -> Result<u64, uc_error> {
         self.reg_read(reg)
     }
@@ -53,6 +52,7 @@ impl<'a> Registers for Unicorn<'a, Data> {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct RegisterInfo {
     pub(crate) pc: i32,
     pub(crate) sp: i32,
