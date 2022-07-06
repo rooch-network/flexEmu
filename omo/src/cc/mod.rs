@@ -1,15 +1,9 @@
-use crate::arch::{ArchT, Core};
-use crate::core::Core;
-use crate::errors::EmulatorError;
 use crate::errors::Result;
 use crate::memory::PointerSizeT;
 use crate::registers::{Registers, StackRegister};
 use crate::stack::Stack;
-use anyhow::ensure;
-use std::cell::RefCell;
-use std::rc::Rc;
-use unicorn_engine::unicorn_const::uc_error;
-use unicorn_engine::Unicorn;
+use anyhow::anyhow;
+
 pub trait CallingConvention {
     /// Get the number of slots allocated for an argument of width `argbits`.
     fn get_num_slots(argbits: u64) -> u64;
@@ -33,10 +27,10 @@ pub trait CallingConvention {
 
     /// Reserve slots for function arguments.
     ///
-    /// 		This may be used to stage a new frame before executing a native function.
+    /// This may be used to stage a new frame before executing a native function.
     ///
-    /// 		Args:
-    /// 			nslots: number of arg slots to reserve
+    /// Args:
+    /// nslots: number of arg slots to reserve
     fn unwind(&mut self, nslots: u64) -> Result<u64>;
 }
 
@@ -44,8 +38,8 @@ pub trait CallingConvention {
 pub struct CallingConventionCommon {
     retreg: i32,
     argregs: Vec<i32>,
-    arg_on_stack_num: u8,
-    shadow: u64,
+    arg_on_stack_num: usize,
+    shadow: usize,
     retaddr_on_stack: bool,
     /// native address size in bytes
     address_size: PointerSizeT,
@@ -55,8 +49,8 @@ impl CallingConventionCommon {
     pub fn new(
         ret_reg: i32,
         arg_regs: Vec<i32>,
-        arg_on_stack: u8,
-        shadow: u64,
+        arg_on_stack: usize,
+        shadow: usize,
         ret_addr_on_stack: bool,
         address_size: PointerSizeT,
     ) -> Self {
@@ -81,18 +75,19 @@ impl CallingConventionCommon {
         assert!(nslots < self.argregs.len() + si, "too many slots");
         // count how many slots should be reserved on the stack
 
-        let sp_change = ((self.shadow + si as u32) * self.address_size) as i64;
+        let sp_change = ((self.shadow + si) * self.address_size as usize) as i64;
         core.incr_sp(-sp_change)?;
         Ok(())
     }
 
-    fn get_param_access(&self, index: u8) -> std::result::Result<i32, u64> {
+    fn get_param_access(&self, index: usize) -> std::result::Result<i32, u64> {
         if (index as usize) < self.argregs.len() {
-            Ok(self.argregs[index])
+            return Ok(self.argregs[index as usize]);
         }
-        let si = (index - self.argregs.len());
+        let si = index as usize - self.argregs.len();
         if si < self.arg_on_stack_num {
-            Err((self.retaddr_on_stack + self.shadow + si) * self.address_size)
+            return Err((self.retaddr_on_stack as usize + self.shadow + si) as u64
+                * self.address_size as u64);
         }
 
         panic!("")
@@ -100,19 +95,20 @@ impl CallingConventionCommon {
     pub fn get_ram_param(
         &self,
         core: &(impl Registers + Stack),
-        index: u8,
+        index: usize,
         argbits: Option<u64>,
     ) -> Result<u64> {
-        ensure!(
-            index < self.arg_on_stack_num + self.argregs.len(),
-            "tried to access arg {}, but only {} args are supported",
-            index,
-            self.arg_on_stack_num + self.argregs.len()
-        );
+        if index >= self.arg_on_stack_num + self.argregs.len() {
+            Err(anyhow!(
+                "tried to access arg {}, but only {} args are supported",
+                index,
+                self.arg_on_stack_num + self.argregs.len()
+            ))?;
+        }
 
         let v = match self.get_param_access(index) {
             Ok(reg) => Registers::read(core, reg)?,
-            Err(s) => Stack::stack_read(core, s as i64),
+            Err(s) => Stack::stack_read(core, s as i64)?,
         };
 
         Ok(match argbits {
@@ -127,16 +123,17 @@ impl CallingConventionCommon {
     pub fn set_raw_param(
         &self,
         core: &mut (impl Registers + Stack),
-        index: u8,
+        index: usize,
         value: u64,
         argbits: Option<u64>,
     ) -> Result<()> {
-        ensure!(
-            index < self.arg_on_stack_num + self.argregs.len(),
-            "tried to access arg {}, but only {} args are supported",
-            index,
-            self.arg_on_stack_num + self.argregs.len()
-        );
+        if index >= self.arg_on_stack_num + self.argregs.len() {
+            Err(anyhow!(
+                "tried to access arg {}, but only {} args are supported",
+                index,
+                self.arg_on_stack_num + self.argregs.len()
+            ))?;
+        }
         let v = match argbits {
             None => value,
             Some(bits) => {

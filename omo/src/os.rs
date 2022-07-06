@@ -1,4 +1,4 @@
-use crate::arch::{ArchT, Core};
+use crate::arch::ArchT;
 use crate::registers::Registers;
 
 use std::collections::{BTreeMap, HashMap};
@@ -9,6 +9,7 @@ use unicorn_engine::{
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, Unicorn,
 };
 
+use crate::core::Core;
 use crate::data::Data;
 use serde::{Deserialize, Serialize};
 use strum::EnumVariantNames;
@@ -33,7 +34,7 @@ struct OsLinuxInner {
 }
 impl OsLinux {
     pub fn load<'a, A: ArchT>(&self, arch: &mut Core<'a, A>) -> Result<(), uc_error> {
-        arch.uc_mut().add_intr_hook({
+        arch.add_intr_hook({
             let this = self.clone();
             move |uc, signal| {
                 this.syscall_hook(uc, signal);
@@ -52,7 +53,7 @@ impl OsLinux {
         }
         let syscall = get_syscall(uc.get_arch(), uc).unwrap();
         let ar = uc.get_arch() as u8;
-        let syscall = self
+        let _syscall = self
             .inner
             .syscall_table
             .get(&ar)

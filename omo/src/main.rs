@@ -1,18 +1,16 @@
 use byteorder::ByteOrder;
 use clap::Parser;
-use goblin::elf::header::ET_EXEC;
-use mips_runner::arch::{ArchMIPS, Core};
-use mips_runner::config::OmoConfig;
-use mips_runner::errors::EmulatorError;
-use mips_runner::loader::ElfLoader;
+
+use omo::arch::{MipsProfile, MIPS};
+use omo::config::OmoConfig;
+use omo::errors::EmulatorError;
+use omo::loader::ElfLoader;
 use std::collections::HashMap;
 use std::fs::read;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering::Relaxed;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::Arc;
-use unicorn_engine::unicorn_const::{uc_error, Arch, Mode, Permission};
-use unicorn_engine::{RegisterMIPS, Unicorn};
+
+use omo::core::build_core;
+use unicorn_engine::Unicorn;
 
 #[derive(Parser)]
 struct Options {
@@ -38,7 +36,10 @@ fn main() -> Result<(), EmulatorError> {
         a.insert(0, opts.exec.display().to_string());
         a
     };
-    let mut uc: Unicorn<_> = Core::new(ArchMIPS::default()).into();
+    let mut uc: Unicorn<_> = {
+        let arch = MIPS::new(MipsProfile::default());
+        build_core(arch)
+    };
 
     let load_result = ElfLoader::load(&config.os, binary.as_slice(), argv, &mut uc).unwrap();
     println!("load result: {:?}", &load_result);

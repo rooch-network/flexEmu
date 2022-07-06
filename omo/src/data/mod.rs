@@ -1,7 +1,5 @@
-use crate::arch::{ArchInfo, ArchT};
 use crate::memory::MemoryManager;
 use crate::registers::RegisterInfo;
-use goblin::container::Endian;
 
 #[derive(Debug)]
 pub struct Data<A> {

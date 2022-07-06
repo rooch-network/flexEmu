@@ -1,7 +1,6 @@
 use crate::core::Core;
-use crate::data::Data;
+
 use unicorn_engine::unicorn_const::uc_error;
-use unicorn_engine::Unicorn;
 
 pub trait Registers {
     fn read(&self, reg: impl Into<i32>) -> Result<u64, uc_error>;

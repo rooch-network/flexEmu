@@ -1,11 +1,10 @@
 use crate::arch::ArchT;
 use crate::core::Core;
-use crate::data::Data;
+
 use crate::memory::Memory;
 use crate::registers::StackRegister;
 use crate::utils::align;
 use unicorn_engine::unicorn_const::uc_error;
-use unicorn_engine::Unicorn;
 
 /// Stack operations
 pub trait Stack: StackRegister + Memory + ArchT {
