@@ -28,6 +28,7 @@ struct Options {
 }
 
 fn main() -> Result<(), EmulatorError> {
+    env_logger::init();
     let opts: Options = Options::parse();
 
     let config: OmoConfig =

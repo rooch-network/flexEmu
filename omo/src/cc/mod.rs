@@ -21,6 +21,7 @@ pub trait CallingConvention {
     fn get_raw_param<'a>(&self, slot: u64, argbits: Option<u64>) -> Result<u64>;
     fn set_raw_param<'a>(&mut self, slot: u64, value: u64, argbits: Option<u64>) -> Result<()>;
     fn get_return_value(&self) -> Result<u64>;
+    // TODO: handle negative value?
     fn set_return_value(&mut self, val: u64) -> Result<()>;
     fn set_return_address(&mut self, addr: u64) -> Result<()>;
     fn reserve(&mut self, nslots: u64) -> Result<()>;

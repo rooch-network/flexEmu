@@ -5,6 +5,8 @@ use crate::memory::PointerSizeT;
 use goblin::container::Endian;
 use unicorn_engine::unicorn_const::{Arch, Mode};
 use unicorn_engine::RegisterMIPS;
+use crate::registers::Registers;
+use crate::stack::Stack;
 
 pub trait ArchT {
     fn endian(&self) -> Endian;
@@ -182,7 +184,9 @@ impl<'a> CallingConvention for Core<'a, MIPS> {
 
     fn set_return_value(&mut self, val: u64) -> crate::errors::Result<()> {
         let inner = self.get_data().arch_info.cc.inner.clone();
-        inner.set_return_value(self, val)
+        inner.set_return_value(self, val)?;
+        self.write(RegisterMIPS::A3, 0)?;
+        Ok(())
     }
 
     fn set_return_address(&mut self, _addr: u64) -> crate::errors::Result<()> {
