@@ -129,7 +129,7 @@ impl ElfLoader {
         load_result.init_stack_address = uc.sp()?;
 
         // init stack address
-        uc.set_sp(stack_address)?;
+        uc.set_sp(stack_address+stack_size)?;
         // set elf table
         Self::load_elf_table(uc, &elf, &load_result, argv, BTreeMap::default())?;
         Ok(load_result)
