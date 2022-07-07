@@ -10,6 +10,8 @@ use std::fs::read;
 use std::path::PathBuf;
 
 use omo::core::build_core;
+use omo::emulator::Emulator;
+use omo::os::LinuxHandler;
 use unicorn_engine::Unicorn;
 
 #[derive(Parser)]
@@ -36,13 +38,15 @@ fn main() -> Result<(), EmulatorError> {
         a.insert(0, opts.exec.display().to_string());
         a
     };
-    let mut uc: Unicorn<_> = {
-        let arch = MIPS::new(MipsProfile::default());
-        build_core(arch)
-    };
+    let mut emu =
+        Emulator::<_, LinuxHandler>::new(config, MIPS::new(MipsProfile::default()), &binary, argv)?;
 
-    let load_result = ElfLoader::load(&config.os, binary.as_slice(), argv, &mut uc).unwrap();
-    println!("load result: {:?}", &load_result);
+    // let mut uc: Unicorn<_> = {
+    //     let arch = ;
+    //     build_core(arch)
+    // };
+
+    emu.run(None, None, None, None)?;
     Ok(())
 }
 

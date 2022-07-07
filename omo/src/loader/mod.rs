@@ -67,14 +67,14 @@ pub struct ElfLoader {
 
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct LoadResult {
-    entrypoint: u64,
-    elf_mem_start: u64,
-    elf_entry: u64,
+    pub entrypoint: u64,
+    pub elf_mem_start: u64,
+    pub elf_entry: u64,
 
-    brk_address: u64,
-    mmap_address: u64,
-    load_address: u64,
-    init_stack_address: u64,
+    pub brk_address: u64,
+    pub mmap_address: u64,
+    pub load_address: u64,
+    pub init_stack_address: u64,
 }
 
 impl ElfLoader {

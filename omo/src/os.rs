@@ -1,18 +1,15 @@
 use crate::arch::ArchT;
+use crate::core::Core;
+use crate::data::Data;
+use crate::errors::EmulatorError;
 use crate::registers::Registers;
-
-use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use strum::EnumVariantNames;
 use unicorn_engine::unicorn_const::Arch::MIPS;
 use unicorn_engine::unicorn_const::{uc_error, Arch};
 use unicorn_engine::{
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, Unicorn,
 };
-
-use crate::core::Core;
-use crate::data::Data;
-use serde::{Deserialize, Serialize};
-use strum::EnumVariantNames;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames)]
 #[serde(rename_all = "lowercase")]
@@ -23,51 +20,34 @@ pub enum SysCalls {
     _LLSEEK,
 }
 
-#[derive(Clone)]
-pub struct OsLinux {
-    inner: Arc<OsLinuxInner>,
-}
-
-struct OsLinuxInner {
-    syscall_table: HashMap<u8, BTreeMap<u64, SysCalls>>,
-    //syscalls: HashMap<SysCalls, Box<dyn SysCallT<4>>>,
-}
-impl OsLinux {
-    pub fn load<'a, A: ArchT>(&self, arch: &mut Core<'a, A>) -> Result<(), uc_error> {
-        arch.add_intr_hook({
-            let this = self.clone();
-            move |uc, signal| {
-                this.syscall_hook(uc, signal);
-            }
-        })?;
+pub trait SysCallHandler<A> {
+    fn handle(core: &mut Core<A>, syscall_no: u64) -> Result<(), uc_error> {
+        panic!("handle syscall: {}", syscall_no);
         Ok(())
     }
-
-    fn syscall_hook<A: ArchT>(&self, uc: &mut Unicorn<Data<A>>, signal: u32) {
-        let intr_signal = match uc.get_arch() {
-            MIPS => 17,
-            _ => unimplemented!(),
-        };
-        if signal != intr_signal {
-            return;
-        }
-        let syscall = get_syscall(uc.get_arch(), uc).unwrap();
-        let ar = uc.get_arch() as u8;
-        let _syscall = self
-            .inner
-            .syscall_table
-            .get(&ar)
-            .and_then(|m| m.get(&syscall))
-            .cloned();
-        // if let Some(call) = syscall {
-        //     let handler = self.inner.syscalls.get(&call);
-        //
-        //     if let Some(_h) = handler {
-        //         //h.call(uc);
-        //     }
-        // }
-    }
 }
+
+pub struct LinuxHandler;
+
+impl<A: ArchT> SysCallHandler<A> for LinuxHandler {}
+
+pub fn attach_handler<A, H: SysCallHandler<A>>(core: &mut Core<A>) -> Result<(), EmulatorError> {
+    core.add_intr_hook({
+        move |uc, signal| {
+            let intr_signal = match uc.get_arch() {
+                MIPS => 17,
+                _ => unimplemented!(),
+            };
+            if signal != intr_signal {
+                return;
+            }
+            let syscall = get_syscall(uc.get_arch(), uc).unwrap();
+            H::handle(uc, syscall).unwrap();
+        }
+    })?;
+    Ok(())
+}
+
 fn syscall_id_reg(arch: Arch) -> i32 {
     match arch {
         Arch::MIPS => RegisterMIPS::V0 as i32,
