@@ -34,6 +34,7 @@ pub trait Memory {
         PAGE_SIZE as u64
     }
     fn mem_map(&mut self, region: MemRegion, info: Option<String>) -> Result<(), uc_error>;
+    fn mem_unmap(&mut self, addr: u64, size: usize) -> Result<(), uc_error>;
     fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, uc_error>;
     fn read_ptr(&self, address: u64, pointersize: Option<PointerSizeT>) -> Result<u64, uc_error>;
 
@@ -73,6 +74,11 @@ impl<'a, A: ArchT> Memory for Core<'a, A> {
         );
         Ok(())
     }
+    fn mem_unmap(&mut self, addr: u64, size: usize) -> Result<(), uc_error> {
+        // TODO: manage map_info
+        Unicorn::mem_unmap(self, addr, size)
+    }
+
     fn write(&mut self, address: u64, bytes: impl AsRef<[u8]>) -> Result<(), uc_error> {
         self.mem_write(address, bytes.as_ref())
     }

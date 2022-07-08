@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::cc::{CallingConvention, CallingConventionCommon};
 use crate::core::Core;
 use crate::errors::EmulatorError;
@@ -68,6 +69,7 @@ impl MipsProfile {
 pub struct MIPS {
     pub(crate) arch_info: MipsProfile,
     pub(crate) cc: MipsCC,
+    pub(crate) sigaction_act: HashMap<u64, Vec<u64>>,
 }
 impl ArchT for MIPS {
     fn endian(&self) -> Endian {
@@ -108,6 +110,7 @@ impl MIPS {
                     arch.pointer_size(),
                 ),
             },
+            sigaction_act: HashMap::default(),
         }
     }
 }

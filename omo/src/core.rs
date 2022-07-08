@@ -6,6 +6,7 @@ use crate::registers::{RegisterInfo, Registers};
 use crate::stack::Stack;
 
 use unicorn_engine::Unicorn;
+use crate::loader::LoadResult;
 
 pub trait Omo {
     type Memory: Memory;
@@ -22,6 +23,7 @@ pub fn build_core<'a, A: ArchT>(arch: A) -> Core<'a, A> {
         register_info: RegisterInfo::new(arch.pc_reg_id(), arch.sp_reg_id()),
         memories: MemoryManager::default(),
         arch_info: arch,
+        load_info: None,
     };
     let uc = Unicorn::new_with_data(data.arch_info.arch(), data.arch_info.mode(), data).unwrap();
     uc

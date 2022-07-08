@@ -24,7 +24,7 @@ impl<'a, A: ArchT, Os: SysCallHandler<A>> Emulator<'a, A, Os> {
         let mut uc = build_core(arch);
         let binary = binary.as_ref();
         let load_result = ElfLoader::load(&config.os, binary, argv, &mut uc)?;
-
+        uc.get_data_mut().load_info = Some(load_result);
         attach_handler::<_, Os>(&mut uc)?;
 
         Ok(Self {

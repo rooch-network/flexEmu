@@ -1,3 +1,4 @@
+use std::io::{stderr, stdin, stdout, Write};
 use crate::arch::{ArchT, MIPS};
 use crate::core::Core;
 use crate::data::Data;
@@ -5,11 +6,18 @@ use crate::errors::EmulatorError;
 use crate::registers::Registers;
 use serde::{Deserialize, Serialize};
 use strum::EnumVariantNames;
-use unicorn_engine::unicorn_const::{uc_error, Arch};
+use unicorn_engine::unicorn_const::{uc_error, Arch, MemRegion, Permission};
 use unicorn_engine::{
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, Unicorn,
 };
 use crate::cc::CallingConvention;
+use crate::memory::Memory;
+use crate::registers::StackRegister;
+use crate::utils::{align_up, Packer};
+
+pub trait Os<A> {
+    type SysCall: SysCallHandler<A>;
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames)]
 #[serde(rename_all = "lowercase")]
@@ -43,10 +51,95 @@ impl LinuxHandler {
         return Ok(std::process::id() as i64)
     }
     fn poll(core: &mut Core<MIPS>, fds: u64, nfds: u64,timeout: u64) -> Result<i64, uc_error> {
-        log::debug!("poll({}, {}, {}), pc: {}", fds, nfds, timeout, core.pc()?);
-        todo!()
+        log::debug!("poll({}, {}, {}), pc: {}, sp: {}", fds, nfds, timeout, core.pc()?, core.sp()?);
+        Ok(0)
+    }
+
+    fn rt_sigaction(core: &mut Core<MIPS>, signum: u64, act: u64, oldact: u64) -> Result<i64, uc_error> {
+        if oldact != 0 {
+            let arr = core.get_data().arch_info.sigaction_act.get(&signum).map(|s| s.as_slice()).unwrap_or(&[0u64;5]);
+
+            let data = {
+                let packer = Packer::new(core.endian(), 4);
+                arr.iter().map(|v|packer.pack(*v as u64)).fold(vec![], |mut acc, mut v| {
+                    acc.append(&mut v);
+                    acc
+                })
+            };
+            Memory::write(core, oldact, data.as_slice())?;
+        }
+        if act != 0 {
+            let data = (0..5).map(|i| Memory::read_ptr(core, act + i * 4, Some(4))).collect::<Result<Vec<_>, _>>()?;
+            core.get_data_mut().arch_info.sigaction_act.insert(signum, data);
+        }
+
+        log::debug!("rt_sigaction({}, {}, {}), pc: {}", signum, act,oldact, core.pc()?);
+        Ok(0)
+    }
+    fn rt_sigprocmask(core: &mut Core<MIPS>, how: u64, nset: u64, oset: u64, sigsetsize: u64) -> Result<i64, uc_error> {
+        log::debug!("rt_sigprocmask({}, {}, {}, {}), pc: {}", how, nset,oset,sigsetsize, core.pc()?);
+        Ok(0)
+    }
+    fn syscall_signal(core: &mut Core<MIPS>, sig: u64, sighandler: u64) -> Result<i64, uc_error> {
+        Ok(0)
+    }
+
+    // TODO: not implemented .
+    fn sigaltstack(core: &mut Core<MIPS>, ss: u64, oss: u64) -> Result<i64, uc_error>{
+        log::warn!("not implemented, sigaltstack({}, {}) pc: {}", ss, oss, core.pc()?);
+        Ok(0)
+    }
+    fn brk(core: &mut Core<MIPS>, inp: u64) -> Result<i64, uc_error> {
+        log::debug!("brk({}) pc: {}", inp, core.pc()?);
+        // current brk_address will be modified if inp is not NULL(zero)
+        // otherwise, just return current brk_address
+        if inp != 0 {
+            let cur_brk_addr = core.get_data().load_info.unwrap().brk_address;
+            let new_brk_addr = align_up(inp as u32, core.pagesize() as u32) as u64;
+            if inp > cur_brk_addr {
+                Memory::mem_map(core, MemRegion {
+                    begin: cur_brk_addr,
+                    end: new_brk_addr,
+                    perms: Permission::ALL,
+                }, Some("[brk]".to_string()))?;
+            } else if inp < cur_brk_addr {
+                Memory::mem_unmap(core, new_brk_addr, (cur_brk_addr - new_brk_addr) as usize)?;
+            }
+            core.get_data_mut().load_info.as_mut().unwrap().brk_address = new_brk_addr;
+        }
+        Ok(core.get_data().load_info.unwrap().brk_address as i64)
+    }
+
+    fn write(core: &mut Core<MIPS>, fd: u64, buf: u64, count: u64) -> Result<i64, uc_error> {
+        log::debug!("write({}, {}, {}) pc: {}", fd, buf,count, core.pc()?);
+        const NR_OPEN: u64 = 1024;
+        if fd > 1024 {
+            return Ok(-(EBADF as i64))
+        }
+        let data = match Memory::read(core, buf, count as usize) {
+            Ok(d) => d,
+            Err(e) => {
+                return Ok(-1)
+            }
+        };
+        if fd == 1 {
+            stdout().write_all(data.as_slice());
+        } else if fd == 2 {
+            stderr().write_all(data.as_slice());
+        } else {
+            return Ok(-1)
+        }
+
+        Ok(count as i64)
+    }
+    fn exit_group(core: &mut Core<MIPS>, code: u64) -> Result<i64, uc_error> {
+        log::debug!("exit_group({}) pc: {}", code, core.pc()?);
+        core.emu_stop()?;
+        Ok(0)
     }
 }
+const EBADF:u64           = 9;
+
 impl SysCallHandler<MIPS> for LinuxHandler {
     fn handle(core: &mut Core<MIPS>, syscall_no: u64) -> Result<(), EmulatorError> {
         let retvalue = match syscall_no {
@@ -63,6 +156,41 @@ impl SysCallHandler<MIPS> for LinuxHandler {
                 let p1 = core.get_raw_param(1, None)?;
                 let p2 = core.get_raw_param(2, None)?;
                 LinuxHandler::poll(core, p0, p1, p2)?
+            }
+            4194 => {
+                let p0 = core.get_raw_param(0, None)?;
+                let p1 = core.get_raw_param(1, None)?;
+                let p2 = core.get_raw_param(2, None)?;
+                LinuxHandler::rt_sigaction(core, p0,p1,p2)?
+            }
+            4195 => {
+                let p0 = core.get_raw_param(0, None)?;
+                let p1 = core.get_raw_param(1, None)?;
+                let p2 = core.get_raw_param(2, None)?;
+                let p3 = core.get_raw_param(3, None)?;
+                LinuxHandler::rt_sigprocmask(core, p0,p1,p2, p3)?
+            }
+            4206 => {
+                let p0 = core.get_raw_param(0, None)?;
+                let p1 = core.get_raw_param(1, None)?;
+                LinuxHandler::sigaltstack(core, p0, p1)?
+            }
+            4045 => {
+                let p0 = core.get_raw_param(0, None)?;
+                LinuxHandler::brk(core, p0)?
+            }
+            4004 => {
+                // {"fd": 1, "buf": 4599872, "count": 12}
+                let p0 = core.get_raw_param(0, None)?;
+                let p1 = core.get_raw_param(1, None)?;
+                let p2 = core.get_raw_param(2, None)?;
+
+                LinuxHandler::write(core, p0, p1, p2)?
+
+            }
+            4246 => {
+                let p0 = core.get_raw_param(0, None)?;
+                LinuxHandler::exit_group(core, p0)?
             }
             _ => {
                 panic!("handle syscall: {}", syscall_no);
