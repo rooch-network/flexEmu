@@ -1,32 +1,52 @@
-# optimism-move
+omo
+===
 
-optimism-move 是一套基于 move 虚拟机的 layer2 的链上仲裁的原型实现，其基本设计主要沿用 [cannon](https://github.com/ethereum-optimism/cannon) 的思路。
-目前还处在初期的计划实施阶段。
-打通整个流程需要完成以下几个主要的模块。
+A bytecode level program emulator with per-step state proof.
 
-### 裁剪&修改 starcoin 代码
+**Arch**: MIPS32 version 1 (SYSV) in present, will support more.
 
-这一步是为了形成一个通过 move-vm 执行 block 的最小代码集合。
-其中主要涉及到，
+**Executable File Format**: ELF 32-bit MSB executable in present.
 
-- 剥离 move-vm 相关代码。
-- 以及修改 vm 和 storage 交互逻辑。
-- 将 stroage 接口 mock 掉，将数据读取和写入临时保存下来。
+## Features
 
-最终的目标是能够构建 min-move-vm，并且能够将其编译成 mips 指令集的二进制代码。
-### 执行 mips 代码
+1. Crossing hardware platform (Coming soon)
+2. Various smart chain virtual machine embed supports
+3. Safe execution environment
 
-将 min-move-vm 编译成 mips 指令集后，还需要一个 mips 代码的模拟执行环境，以执行该代码。
-所以需要用 Rust 实现 min-move-vm mips代码的执行以及 vm 最终状态结果输出。
-目前思路是利用 [unicorn](https://www.unicorn-engine.org/) 作为 mips 的基础执行环境。
+## Background
 
-### 链上合约实现
+### Limitation of Blockchain with Smart Contract
 
-链上合约主要包括：
+The most valuable resource on the chain is gas, because the gas of each block is capped, and the average block-out time
+is fixed, so there is actually a limit to the number of computational steps that can be done per unit of time:
 
-- mips 指令的执行。主要难点在于实现 memory 和 state 的读取，写入，这涉及到在链上实现一个 merkle tree，以验证读取的正确性。
-- 交互式仲裁的实现。这一部分可以参考 cannon 的 逻辑，将其用 move 实现。
+`TPS = (Max_Gas/Gas_Per_TXN)/Block-out_Time`
 
-### 模块串联
+Obviously, we need to try to reduce s per txn.
 
-三个模块完成之后，需要串联起来，跑通整个流程。
+The direct way is to package multi txn into one, and that's the core idea of rollup.
+
+### Optimistic Rollup
+
+In last section, we've known that we need rollup, but who will take this responsibility, is it safe, how to challenge
+the state?
+
+First, we need to lock collateralized assets on chain for off-chain execution. Just like what we do in
+Bitcoin Lightning Network.
+
+Then, the verifier could be elected from community or DApp organization who deserves to be trusted. We are optimistic
+that the chances of them doing evil are low because there is no obvious benefit.
+
+The verifier provides abilities of persisting states on local for executing txn. What's more, we could set breakpoint
+for finding wrong txn if there is one in challenge process.
+
+In one word, Optimistic Rollup is a collateral-based off-chain solution to achieve scalability.
+
+### Question: Is there any other way to improve TPS safely?
+
+Yes! But OMO is just focused on Optimistic Rollup.
+
+## Acknowledge
+
+Inspired by [qiling](https://github.com/qilingframework/qiling).
+
