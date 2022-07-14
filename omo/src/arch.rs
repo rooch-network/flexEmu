@@ -18,13 +18,6 @@ pub trait ArchT {
     fn mode(&self) -> Mode;
 }
 
-#[derive(Copy, Eq, PartialEq, Debug, Clone)]
-pub struct ArchInfo {
-    pub endian: Endian,
-    pub pointer_size: u8,
-    pub mode: Mode,
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct MipsProfile {
     mode32: bool,

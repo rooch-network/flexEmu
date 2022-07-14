@@ -16,7 +16,20 @@ use crate::registers::StackRegister;
 use crate::utils::{align_up, Packer};
 
 pub trait Os<A> {
-    type SysCall: SysCallHandler<A>;
+    fn run<'a>(self, core: &mut Core<'a, A>) -> Result<(), EmulatorError>;
+}
+
+
+#[derive(Debug)]
+pub struct Linux {
+}
+
+impl<A: ArchT> Os<A> for Linux where LinuxHandler: SysCallHandler<A> {
+    fn run<'a>(self, core: &mut Core<'a, A>, ) -> Result<(), EmulatorError> {
+        attach_handler::<A, LinuxHandler>(core)?;
+        core.emu_start();
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames)]
