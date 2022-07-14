@@ -1,11 +1,13 @@
 omo
 ===
 
+[中文](README.zh_CN.md)
+
 A bytecode level program emulator with per-step state proof.
 
-**Arch**: MIPS32 version 1 (SYSV) in present, will support more.
+**Arch**: MIPS32 version 1 (SYSV) at present, will support more.
 
-**Executable File Format**: ELF 32-bit MSB executable in present.
+**Executable File Format**: ELF 32-bit MSB executable at present.
 
 ## Features
 
@@ -22,7 +24,7 @@ is fixed, so there is actually a limit to the number of computational steps that
 
 `TPS = (Max_Gas/Gas_Per_TXN)/Block-out_Time`
 
-Obviously, we need to try to reduce s per txn.
+Obviously, we need to try to reduce gas per txn.
 
 The direct way is to package multi txn into one, and that's the core idea of rollup.
 
