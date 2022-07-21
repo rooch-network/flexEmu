@@ -6,9 +6,8 @@
 pub mod arch;
 pub mod cc;
 pub mod config;
-pub mod core;
-pub mod data;
 pub mod emulator;
+pub mod engine;
 pub mod errors;
 pub mod loader;
 pub mod memory;

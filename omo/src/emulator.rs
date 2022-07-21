@@ -3,8 +3,7 @@
 use crate::{
     arch::{ArchInfo, ArchT},
     config::OmoConfig,
-    core::Core,
-    data::Machine,
+    engine::{Engine, Machine},
     errors::EmulatorError,
     loader::{ElfLoader, LoadInfo},
     os::Runner,
@@ -14,12 +13,12 @@ use unicorn_engine::unicorn_const::Mode;
 
 pub struct Emulator<'a, A, Os> {
     config: OmoConfig,
-    core: Core<'a, A>,
+    core: Engine<'a, A>,
     os: Os,
 }
 
 impl<'a, A, O> Emulator<'a, A, O> {
-    pub fn engine(&self) -> &Core<'a, A> {
+    pub fn engine(&self) -> &Engine<'a, A> {
         &self.core
     }
     pub fn runner(&self) -> &O {

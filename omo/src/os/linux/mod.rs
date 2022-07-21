@@ -1,7 +1,7 @@
 use crate::{
     arch::{ArchInfo, ArchT},
     cc::CallingConvention,
-    core::Core,
+    engine::Engine,
 };
 
 use crate::{
@@ -51,7 +51,7 @@ impl LinuxRunner {
 impl Runner for LinuxRunner {
     fn on_load<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         load_info: LoadInfo,
     ) -> Result<(), EmulatorError> {
         self.inner.borrow_mut().brk_address = load_info.brk_address;
@@ -67,7 +67,7 @@ impl Runner for LinuxRunner {
 }
 
 impl Inner {
-    fn on_interrupt<'a, A: ArchT>(&mut self, core: &mut Core<'a, A>, s: u32) {
+    fn on_interrupt<'a, A: ArchT>(&mut self, core: &mut Engine<'a, A>, s: u32) {
         let arch = core.get_arch();
         let signal = intr_signal(arch);
         if signal != s {
@@ -95,7 +95,7 @@ impl Inner {
 
     fn handle_syscall<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         syscall: SysCalls,
     ) -> Result<(), EmulatorError> {
         assert_eq!(core.get_arch(), Arch::MIPS, "only support mips for now");
@@ -198,7 +198,7 @@ impl Inner {
 impl Inner {
     fn set_thread_area<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         u_info_addr: u64,
     ) -> Result<i64, uc_error> {
         const CONFIG4_ULR: u64 = 1 << 13;
@@ -211,7 +211,7 @@ impl Inner {
     }
     fn set_tid_address<'a, A: ArchT>(
         &mut self,
-        _core: &mut Core<'a, A>,
+        _core: &mut Engine<'a, A>,
         tidptr: u64,
     ) -> Result<i64, uc_error> {
         // TODO: check thread management
@@ -220,7 +220,7 @@ impl Inner {
     }
     fn poll<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         fds: u64,
         nfds: u64,
         timeout: u64,
@@ -238,7 +238,7 @@ impl Inner {
 
     fn rt_sigaction<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         signum: u64,
         act: u64,
         oldact: u64,
@@ -279,7 +279,7 @@ impl Inner {
     }
     fn rt_sigprocmask<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         how: u64,
         nset: u64,
         oset: u64,
@@ -297,7 +297,7 @@ impl Inner {
     }
     fn syscall_signal<'a, A>(
         &mut self,
-        _core: &mut Core<'a, A>,
+        _core: &mut Engine<'a, A>,
         _sig: u64,
         _sighandler: u64,
     ) -> Result<i64, uc_error> {
@@ -307,7 +307,7 @@ impl Inner {
     // TODO: not implemented .
     fn sigaltstack<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         ss: u64,
         oss: u64,
     ) -> Result<i64, uc_error> {
@@ -319,7 +319,7 @@ impl Inner {
         );
         Ok(0)
     }
-    fn brk<'a, A: ArchT>(&mut self, core: &mut Core<'a, A>, inp: u64) -> Result<i64, uc_error> {
+    fn brk<'a, A: ArchT>(&mut self, core: &mut Engine<'a, A>, inp: u64) -> Result<i64, uc_error> {
         log::debug!("brk({}) pc: {}", inp, core.pc()?);
         // current brk_address will be modified if inp is not NULL(zero)
         // otherwise, just return current brk_address
@@ -346,7 +346,7 @@ impl Inner {
 
     fn write<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         fd: u64,
         buf: u64,
         count: u64,
@@ -374,7 +374,7 @@ impl Inner {
     }
     fn exit_group<'a, A: ArchT>(
         &mut self,
-        core: &mut Core<'a, A>,
+        core: &mut Engine<'a, A>,
         code: u64,
     ) -> Result<i64, uc_error> {
         log::debug!("exit_group({}) pc: {}", code, core.pc()?);

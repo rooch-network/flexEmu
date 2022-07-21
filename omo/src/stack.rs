@@ -1,4 +1,4 @@
-use crate::{arch::ArchInfo, core::Core};
+use crate::{arch::ArchInfo, engine::Engine};
 
 use crate::{arch::ArchT, memory::Memory, registers::StackRegister, utils::align};
 use unicorn_engine::unicorn_const::uc_error;
@@ -39,7 +39,7 @@ pub trait Stack {
     }
 }
 
-impl<'a, A: ArchT> Stack for Core<'a, A> {
+impl<'a, A: ArchT> Stack for Engine<'a, A> {
     fn stack_push(&mut self, pointer: u64) -> Result<u64, uc_error> {
         let ps = self.pointer_size();
         let new_sp = self.incr_sp(-(ps as i64))?;

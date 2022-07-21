@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::arch::ArchInfo;
 
-use crate::{data::Machine, utils::Packer, PAGE_SIZE};
+use crate::{engine::Machine, utils::Packer, PAGE_SIZE};
 use unicorn_engine::{
     unicorn_const::{uc_error, MemRegion, Permission},
     Unicorn,

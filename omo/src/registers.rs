@@ -1,4 +1,4 @@
-use crate::core::Core;
+use crate::engine::Engine;
 
 use crate::arch::ArchT;
 use unicorn_engine::unicorn_const::uc_error;
@@ -23,7 +23,7 @@ pub trait StackRegister {
     }
 }
 
-impl<'a, A: ArchT> StackRegister for Core<'a, A> {
+impl<'a, A: ArchT> StackRegister for Engine<'a, A> {
     fn sp(&self) -> Result<u64, uc_error> {
         self.read(A::SP)
     }
@@ -33,7 +33,7 @@ impl<'a, A: ArchT> StackRegister for Core<'a, A> {
     }
 }
 
-impl<'a, A: ArchT> Registers for Core<'a, A> {
+impl<'a, A: ArchT> Registers for Engine<'a, A> {
     fn read(&self, reg: impl Into<i32>) -> Result<u64, uc_error> {
         self.reg_read(reg)
     }

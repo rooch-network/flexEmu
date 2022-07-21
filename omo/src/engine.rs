@@ -8,6 +8,8 @@ use crate::{
 };
 use unicorn_engine::{unicorn_const::Mode, Unicorn};
 
+pub type Engine<'a, A> = Unicorn<'a, Machine<A>>;
+
 #[derive(Debug)]
 pub struct Machine<A> {
     pub(crate) memories: MemoryManager,
