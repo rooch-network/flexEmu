@@ -7,7 +7,7 @@ use omo::{
     errors::EmulatorError,
     os::linux::LinuxRunner,
 };
-use std::{collections::HashMap, fs::read, path::PathBuf};
+use std::{collections::HashMap, error::Error, fs::read, path::PathBuf};
 
 #[derive(Parser)]
 struct Options {
@@ -18,12 +18,13 @@ struct Options {
     /// exec file
     exec: PathBuf,
     args: Vec<String>,
-    // #[clap(long = "env")]
-    // envs: Vec<(String, String)>,
+    #[clap(long = "env", parse(try_from_str=parse_key_val))]
+    envs: Vec<(String, String)>,
 }
 
 fn main() -> Result<(), EmulatorError> {
     env_logger::init();
+
     let opts: Options = Options::parse();
 
     let config: OmoConfig =
@@ -34,12 +35,13 @@ fn main() -> Result<(), EmulatorError> {
         a.insert(0, opts.exec.display().to_string());
         a
     };
+    let env = opts.envs.clone();
     let mips_profile = MipsProfile::default();
     let arch = MIPS::new(mips_profile.pointer_size());
     let runner = LinuxRunner::new();
     let mut emu = Emulator::<_, LinuxRunner>::new(config, arch, mips_profile.mode(), runner)?;
 
-    let load_info = emu.load(&binary, argv)?;
+    let load_info = emu.load(&binary, argv, env)?;
 
     // let mut uc: Unicorn<_> = {
     //     let arch = ;
@@ -48,6 +50,20 @@ fn main() -> Result<(), EmulatorError> {
 
     emu.run(load_info.entrypoint, None, None, None)?;
     Ok(())
+}
+
+/// Parse a single key-value pair
+fn parse_key_val<T, U>(s: &str) -> Result<(T, U), anyhow::Error>
+where
+    T: std::str::FromStr,
+    T::Err: Error + 'static + Sync + Send,
+    U: std::str::FromStr,
+    U::Err: Error + 'static + Sync + Send,
+{
+    let pos = s
+        .find('=')
+        .ok_or_else(|| anyhow::anyhow!("invalid KEY=value: no `=` found in `{}`", s))?;
+    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
 const TOTAL_MEMORY: usize = 0x180000000;

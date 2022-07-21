@@ -8,6 +8,7 @@ use crate::{
     loader::{ElfLoader, LoadInfo},
     os::Runner,
 };
+use std::collections::BTreeMap;
 
 use unicorn_engine::unicorn_const::Mode;
 
@@ -44,9 +45,16 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
         &mut self,
         binary: impl AsRef<[u8]>,
         argv: Vec<String>,
+        env: Vec<(String, String)>,
     ) -> Result<LoadInfo, EmulatorError> {
         let binary = binary.as_ref();
-        let load_result = ElfLoader::load(&self.config.os, binary, argv, &mut self.core)?;
+        let load_result = ElfLoader::load(
+            &self.config.os,
+            binary,
+            argv,
+            env.into_iter().collect::<BTreeMap<_, _>>(),
+            &mut self.core,
+        )?;
         self.os.on_load(&mut self.core, load_result)?;
         Ok(load_result)
     }

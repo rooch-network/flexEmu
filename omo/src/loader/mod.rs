@@ -84,6 +84,7 @@ impl ElfLoader {
         config: &Config,
         binary: impl AsRef<[u8]>,
         argv: Vec<String>,
+        env: BTreeMap<String, String>,
         uc: &mut impl Mach,
     ) -> Result<LoadInfo, errors::EmulatorError> {
         let stack_address = config.stack_address;
@@ -133,7 +134,7 @@ impl ElfLoader {
         // init stack address
         uc.set_sp(stack_address + stack_size)?;
         // set elf table
-        Self::load_elf_table(uc, &elf, &load_result, argv, BTreeMap::default())?;
+        Self::load_elf_table(uc, &elf, &load_result, argv, env)?;
         Ok(load_result)
     }
     fn load_elf_table(
