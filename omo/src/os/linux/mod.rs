@@ -1,185 +1,204 @@
-use crate::arch::{ArchT, MIPS};
-use crate::cc::CallingConvention;
-use crate::core::Core;
-use crate::errors::EmulatorError;
-use crate::loader::LoadInfo;
-use crate::memory::Memory;
-use crate::os::linux::syscall::SysCalls;
-use crate::os::Os;
-use crate::registers::Registers;
-use crate::registers::StackRegister;
-use crate::utils::{align_up, Packer};
-use std::collections::HashMap;
-use std::io::{stderr, stdin, stdout, Write};
-use std::marker::PhantomData;
-use unicorn_engine::unicorn_const::{uc_error, Arch, MemRegion, Permission};
-use unicorn_engine::{
-    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, Unicorn,
+use crate::{
+    arch::{ArchInfo, ArchT},
+    cc::CallingConvention,
+    core::Core,
 };
 
+use crate::{
+    errors::EmulatorError,
+    loader::LoadInfo,
+    memory::Memory,
+    os::{linux::syscall::SysCalls, Runner},
+    registers::{Registers, StackRegister},
+    utils::{align_up, Packer},
+};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    io::{stderr, stdout, Write},
+};
+
+use std::{rc::Rc, str::FromStr};
+use unicorn_engine::{
+    unicorn_const::{uc_error, Arch, MemRegion, Permission},
+    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
+};
 pub mod syscall;
 
 #[derive(Debug, Default)]
-pub struct Linux<H> {
-    sigaction_act: HashMap<u64, Vec<u64>>,
-    brk_address: u64,
-    handler: H,
+pub struct LinuxRunner {
+    inner: Rc<RefCell<Inner>>,
 }
 
-impl<H> Os for Linux<H>
-where
-    H: LinuxSyscallHandler,
-{
-    fn on_load<A: ArchT>(
-        core: &mut Core<A, Self>,
+#[derive(Debug, Default)]
+struct Inner {
+    sigaction_act: HashMap<u64, Vec<u64>>,
+    brk_address: u64,
+}
+
+impl LinuxRunner {
+    pub fn new() -> Self {
+        let inner = Inner {
+            sigaction_act: HashMap::default(),
+            brk_address: 0,
+        };
+        Self {
+            inner: Rc::new(RefCell::new(inner)),
+        }
+    }
+}
+
+impl Runner for LinuxRunner {
+    fn on_load<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
         load_info: LoadInfo,
     ) -> Result<(), EmulatorError> {
-        let os = core.get_data_mut().os_mut();
-        os.brk_address = load_info.brk_address;
+        self.inner.borrow_mut().brk_address = load_info.brk_address;
 
-        core.add_intr_hook(Self::on_interrupt::<A>);
+        core.add_intr_hook({
+            let inner = self.inner.clone();
+            move |uc, signal| {
+                inner.borrow_mut().on_interrupt(uc, signal);
+            }
+        })?;
         Ok(())
     }
 }
 
-impl<H> Linux<H>
-where
-    H: LinuxSyscallHandler,
-{
-    fn on_interrupt<A: ArchT>(core: &mut Core<A, Self>, signal: u32) {
-        core.get_arch()
-        let signal = intr_signal(core.get_arch());
-        if signal != intr_signal {
+impl Inner {
+    fn on_interrupt<'a, A: ArchT>(&mut self, core: &mut Core<'a, A>, s: u32) {
+        let arch = core.get_arch();
+        let signal = intr_signal(arch);
+        if signal != s {
             return;
         }
-        let arch = core.get_arch();
+
         let syscall_no = get_syscall(arch, core).unwrap();
         let call = syscall::SYSCALL
             .get(&(core.get_arch() as u8))
             .and_then(|v| v.get(&syscall_no));
         match call {
             None => {
-                unimplemented!("Please implement syscall {} for {}", syscall_no, arch);
+                unimplemented!("Please implement syscall {} for {:?}", syscall_no, arch);
             }
             Some(call) => match SysCalls::from_str(call.as_str()) {
                 Ok(c) => {
-                    Self::handle_syscall(core, c).unwrap();
+                    self.handle_syscall(core, c).unwrap();
                 }
-                Err(e) => {
-                    unimplemented!("Please implement syscall {} for {}", syscall_no, arch);
+                Err(_e) => {
+                    unimplemented!("Please implement syscall {} for {:?}", syscall_no, arch);
                 }
             },
         }
     }
 
-    fn handle_syscall<A: ArchT>(
-        core: &mut Core<A, Self>,
+    fn handle_syscall<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
         syscall: SysCalls,
     ) -> Result<(), EmulatorError> {
+        assert_eq!(core.get_arch(), Arch::MIPS, "only support mips for now");
+        let cc = core.get_data().env().cc();
         let retvalue = match syscall {
             SysCalls::SET_THREAD_AREA => {
-                let p0 = core.get_raw_param(0, None)?;
-                H::set_thread_area(core, p0)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.set_thread_area(core, p0)?
             }
             SysCalls::SET_TID_ADDRESS => {
-                let p0 = core.get_raw_param(0, None)?;
-                H::set_tid_address(core, p0)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.set_tid_address(core, p0)?
             }
             SysCalls::POLL => {
-                let p0 = core.get_raw_param(0, None)?;
-                let p1 = core.get_raw_param(1, None)?;
-                let p2 = core.get_raw_param(2, None)?;
-                H::poll(core, p0, p1, p2)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.poll(core, p0, p1, p2)?
             }
             SysCalls::RT_SIGACTION => {
-                let p0 = core.get_raw_param(0, None)?;
-                let p1 = core.get_raw_param(1, None)?;
-                let p2 = core.get_raw_param(2, None)?;
-                H::rt_sigaction(core, p0, p1, p2)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.rt_sigaction(core, p0, p1, p2)?
             }
             SysCalls::RT_SIGPROCMASK => {
-                let p0 = core.get_raw_param(0, None)?;
-                let p1 = core.get_raw_param(1, None)?;
-                let p2 = core.get_raw_param(2, None)?;
-                let p3 = core.get_raw_param(3, None)?;
-                H::rt_sigprocmask(core, p0, p1, p2, p3)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 3, None)?;
+                self.rt_sigprocmask(core, p0, p1, p2, p3)?
             }
             SysCalls::SIGALTSTACK => {
-                let p0 = core.get_raw_param(0, None)?;
-                let p1 = core.get_raw_param(1, None)?;
-                H::sigaltstack(core, p0, p1)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.sigaltstack(core, p0, p1)?
             }
             SysCalls::BRK => {
-                let p0 = core.get_raw_param(0, None)?;
-                H::brk(core, p0)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.brk(core, p0)?
             }
             SysCalls::WRITE => {
                 // {"fd": 1, "buf": 4599872, "count": 12}
-                let p0 = core.get_raw_param(0, None)?;
-                let p1 = core.get_raw_param(1, None)?;
-                let p2 = core.get_raw_param(2, None)?;
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
 
-                H::write(core, p0, p1, p2)?
+                self.write(core, p0, p1, p2)?
             }
             SysCalls::EXIT_GROUP => {
-                let p0 = core.get_raw_param(0, None)?;
-                H::exit_group(core, p0)?
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.exit_group(core, p0)?
             }
             _ => {
                 panic!("please handle syscall: {:?}", syscall);
             }
         };
-        core.set_return_value(retvalue as u64)?;
+
+        cc.set_return_value(core, retvalue as u64)?;
+
         Ok(())
     }
 }
 
-pub trait LinuxSyscallHandler: Sized {
-    fn set_thread_area<A: ArchT>(
-        core: &mut Core<A, Linux<Self>>,
-        u_info_addr: u64,
-    ) -> Result<i64, uc_error>;
-    fn set_tid_address<A: ArchT>(core: &mut Core<A, Self>, tidptr: u64) -> Result<i64, uc_error>;
-    fn poll<A: ArchT>(
-        core: &mut Core<A, Self>,
-        fds: u64,
-        nfds: u64,
-        timeout: u64,
-    ) -> Result<i64, uc_error>;
-    fn rt_sigaction<A: ArchT>(
-        core: &mut Core<A, Self>,
-        signum: u64,
-        act: u64,
-        oldact: u64,
-    ) -> Result<i64, uc_error>;
-    fn rt_sigprocmask<A: ArchT>(
-        core: &mut Core<A, Self>,
-        how: u64,
-        nset: u64,
-        oset: u64,
-        sigsetsize: u64,
-    ) -> Result<i64, uc_error>;
-    fn syscall_signal(
-        core: &mut Core<MIPS, Self>,
-        sig: u64,
-        sighandler: u64,
-    ) -> Result<i64, uc_error>;
-    fn sigaltstack<A: ArchT>(core: &mut Core<A, Self>, ss: u64, oss: u64) -> Result<i64, uc_error>;
-    fn brk<A: ArchT>(core: &mut Core<A, Self>, inp: u64) -> Result<i64, uc_error>;
-    fn write<A: ArchT>(
-        core: &mut Core<A, Self>,
-        fd: u64,
-        buf: u64,
-        count: u64,
-    ) -> Result<i64, uc_error>;
-    fn exit_group<A: ArchT>(core: &mut Core<A, Self>, code: u64) -> Result<i64, uc_error>;
-}
+// pub trait LinuxSyscallHandler {
+//     fn set_thread_area(&mut self, core: &mut impl Mach, u_info_addr: u64) -> Result<i64, uc_error>;
+//     fn set_tid_address(core: &mut impl Mach, tidptr: u64) -> Result<i64, uc_error>;
+//     fn poll<A: ArchT>(
+//         core: &mut impl Mach,
+//         fds: u64,
+//         nfds: u64,
+//         timeout: u64,
+//     ) -> Result<i64, uc_error>;
+//     fn rt_sigaction<A: ArchT>(
+//         core: &mut impl Mach,
+//         signum: u64,
+//         act: u64,
+//         oldact: u64,
+//     ) -> Result<i64, uc_error>;
+//     fn rt_sigprocmask<A: ArchT>(
+//         core: &mut impl Mach,
+//         how: u64,
+//         nset: u64,
+//         oset: u64,
+//         sigsetsize: u64,
+//     ) -> Result<i64, uc_error>;
+//     fn syscall_signal(core: &mut impl Mach, sig: u64, sighandler: u64) -> Result<i64, uc_error>;
+//     fn sigaltstack<A: ArchT>(core: &mut Core<A, Self>, ss: u64, oss: u64) -> Result<i64, uc_error>;
+//     fn brk<A: ArchT>(core: &mut Core<A, Self>, inp: u64) -> Result<i64, uc_error>;
+//     fn write<A: ArchT>(
+//         core: &mut Core<A, Self>,
+//         fd: u64,
+//         buf: u64,
+//         count: u64,
+//     ) -> Result<i64, uc_error>;
+//     fn exit_group<A: ArchT>(core: &mut Core<A, Self>, code: u64) -> Result<i64, uc_error>;
+// }
+//
 
-pub struct DefaultLinuxSyscallHandler;
-
-impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
-    fn set_thread_area<A: ArchT>(
-        core: &mut Core<A, Self>,
+impl Inner {
+    fn set_thread_area<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
         u_info_addr: u64,
     ) -> Result<i64, uc_error> {
         const CONFIG4_ULR: u64 = 1 << 13;
@@ -190,13 +209,18 @@ impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
         log::debug!("set_thread_area({})", u_info_addr);
         Ok(0)
     }
-    fn set_tid_address<A: ArchT>(core: &mut Core<A, Self>, tidptr: u64) -> Result<i64, uc_error> {
+    fn set_tid_address<'a, A: ArchT>(
+        &mut self,
+        _core: &mut Core<'a, A>,
+        tidptr: u64,
+    ) -> Result<i64, uc_error> {
         // TODO: check thread management
         log::debug!("set_tid_address({})", tidptr);
-        return Ok(std::process::id() as i64);
+        Ok(std::process::id() as i64)
     }
-    fn poll<A: ArchT>(
-        core: &mut Core<A, Self>,
+    fn poll<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
         fds: u64,
         nfds: u64,
         timeout: u64,
@@ -212,16 +236,15 @@ impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
         Ok(0)
     }
 
-    fn rt_sigaction<A: ArchT>(
-        core: &mut Core<A, Self>,
+    fn rt_sigaction<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
         signum: u64,
         act: u64,
         oldact: u64,
     ) -> Result<i64, uc_error> {
         if oldact != 0 {
-            let arr = core
-                .get_data()
-                .arch_info
+            let arr = self
                 .sigaction_act
                 .get(&signum)
                 .map(|s| s.as_slice())
@@ -242,10 +265,7 @@ impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
             let data = (0..5)
                 .map(|i| Memory::read_ptr(core, act + i * 4, Some(4)))
                 .collect::<Result<Vec<_>, _>>()?;
-            core.get_data_mut()
-                .arch_info
-                .sigaction_act
-                .insert(signum, data);
+            self.sigaction_act.insert(signum, data);
         }
 
         log::debug!(
@@ -257,8 +277,9 @@ impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
         );
         Ok(0)
     }
-    fn rt_sigprocmask<A: ArchT>(
-        core: &mut Core<A, Self>,
+    fn rt_sigprocmask<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
         how: u64,
         nset: u64,
         oset: u64,
@@ -274,16 +295,22 @@ impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
         );
         Ok(0)
     }
-    fn syscall_signal(
-        core: &mut Core<MIPS, Self>,
-        sig: u64,
-        sighandler: u64,
+    fn syscall_signal<'a, A>(
+        &mut self,
+        _core: &mut Core<'a, A>,
+        _sig: u64,
+        _sighandler: u64,
     ) -> Result<i64, uc_error> {
         Ok(0)
     }
 
     // TODO: not implemented .
-    fn sigaltstack<A: ArchT>(core: &mut Core<A, Self>, ss: u64, oss: u64) -> Result<i64, uc_error> {
+    fn sigaltstack<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
+        ss: u64,
+        oss: u64,
+    ) -> Result<i64, uc_error> {
         log::warn!(
             "not implemented, sigaltstack({}, {}) pc: {}",
             ss,
@@ -292,12 +319,12 @@ impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
         );
         Ok(0)
     }
-    fn brk<A: ArchT>(core: &mut Core<A, Self>, inp: u64) -> Result<i64, uc_error> {
+    fn brk<'a, A: ArchT>(&mut self, core: &mut Core<'a, A>, inp: u64) -> Result<i64, uc_error> {
         log::debug!("brk({}) pc: {}", inp, core.pc()?);
         // current brk_address will be modified if inp is not NULL(zero)
         // otherwise, just return current brk_address
         if inp != 0 {
-            let cur_brk_addr = core.get_data().load_info.unwrap().brk_address;
+            let cur_brk_addr = self.brk_address;
             let new_brk_addr = align_up(inp as u32, core.pagesize() as u32) as u64;
             if inp > cur_brk_addr {
                 Memory::mem_map(
@@ -312,39 +339,44 @@ impl LinuxSyscallHandler for DefaultLinuxSyscallHandler {
             } else if inp < cur_brk_addr {
                 Memory::mem_unmap(core, new_brk_addr, (cur_brk_addr - new_brk_addr) as usize)?;
             }
-            core.get_data_mut().load_info.as_mut().unwrap().brk_address = new_brk_addr;
+            self.brk_address = new_brk_addr;
         }
-        Ok(core.get_data().load_info.unwrap().brk_address as i64)
+        Ok(self.brk_address as i64)
     }
 
-    fn write<A: ArchT>(
-        core: &mut Core<A, Self>,
+    fn write<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
         fd: u64,
         buf: u64,
         count: u64,
     ) -> Result<i64, uc_error> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         const NR_OPEN: u64 = 1024;
-        if fd > 1024 {
+        if fd > NR_OPEN {
             return Ok(-(EBADF as i64));
         }
         let data = match Memory::read(core, buf, count as usize) {
             Ok(d) => d,
-            Err(e) => {
+            Err(_e) => {
                 return Ok(-1);
             }
         };
         if fd == 1 {
-            stdout().write_all(data.as_slice());
+            stdout().write_all(data.as_slice()).unwrap();
         } else if fd == 2 {
-            stderr().write_all(data.as_slice());
+            stderr().write_all(data.as_slice()).unwrap();
         } else {
             return Ok(-1);
         }
 
         Ok(count as i64)
     }
-    fn exit_group<A: ArchT>(core: &mut Core<A, Self>, code: u64) -> Result<i64, uc_error> {
+    fn exit_group<'a, A: ArchT>(
+        &mut self,
+        core: &mut Core<'a, A>,
+        code: u64,
+    ) -> Result<i64, uc_error> {
         log::debug!("exit_group({}) pc: {}", code, core.pc()?);
         core.emu_stop()?;
         Ok(0)

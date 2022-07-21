@@ -1,6 +1,8 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use goblin::container::Endian;
-use goblin::elf::program_header::{PF_R, PF_W, PF_X};
+use goblin::{
+    container::Endian,
+    elf::program_header::{PF_R, PF_W, PF_X},
+};
 
 use crate::memory::PointerSizeT;
 use unicorn_engine::unicorn_const::Permission;

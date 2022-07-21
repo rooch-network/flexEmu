@@ -1,11 +1,12 @@
 use anyhow::Result;
 
-use crate::arch::ArchT;
-use crate::core::Core;
-use crate::utils::Packer;
-use crate::PAGE_SIZE;
-use unicorn_engine::unicorn_const::{uc_error, MemRegion, Permission};
-use unicorn_engine::Unicorn;
+use crate::arch::ArchInfo;
+
+use crate::{data::Machine, utils::Packer, PAGE_SIZE};
+use unicorn_engine::{
+    unicorn_const::{uc_error, MemRegion, Permission},
+    Unicorn,
+};
 
 pub type PointerSizeT = u8;
 #[derive(Debug)]
@@ -55,7 +56,7 @@ pub trait Memory {
     //fn align_up(&self, value: u64, alignment: Option<usize>) -> u64;
 }
 
-impl<'a, A: ArchT, O> Memory for Core<'a, A, O> {
+impl<'a, A> Memory for Unicorn<'a, Machine<A>> {
     fn mem_map(
         &mut self,
         MemRegion { begin, end, perms }: MemRegion,
@@ -79,9 +80,6 @@ impl<'a, A: ArchT, O> Memory for Core<'a, A, O> {
         Unicorn::mem_unmap(self, addr, size)
     }
 
-    fn write(&mut self, address: u64, bytes: impl AsRef<[u8]>) -> Result<(), uc_error> {
-        self.mem_write(address, bytes.as_ref())
-    }
     fn read(&self, addr: u64, len: usize) -> Result<Vec<u8>, uc_error> {
         self.mem_read_as_vec(addr, len)
     }
@@ -90,6 +88,9 @@ impl<'a, A: ArchT, O> Memory for Core<'a, A, O> {
         let data = Memory::read(self, address, pointersize as usize)?;
         let packer = Packer::new(self.endian(), pointersize);
         Ok(packer.unpack(data))
+    }
+    fn write(&mut self, address: u64, bytes: impl AsRef<[u8]>) -> Result<(), uc_error> {
+        self.mem_write(address, bytes.as_ref())
     }
 
     fn write_ptr(

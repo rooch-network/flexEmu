@@ -1,18 +1,13 @@
 use byteorder::ByteOrder;
 use clap::Parser;
-
-use omo::arch::{MipsProfile, MIPS};
-use omo::config::OmoConfig;
-use omo::errors::EmulatorError;
-use omo::loader::ElfLoader;
-use std::collections::HashMap;
-use std::fs::read;
-use std::path::PathBuf;
-
-use omo::core::build_core;
-use omo::emulator::Emulator;
-use omo::os::LinuxHandler;
-use unicorn_engine::Unicorn;
+use omo::{
+    arch::mips::{MipsProfile, MIPS},
+    config::OmoConfig,
+    emulator::Emulator,
+    errors::EmulatorError,
+    os::linux::LinuxRunner,
+};
+use std::{collections::HashMap, fs::read, path::PathBuf};
 
 #[derive(Parser)]
 struct Options {
@@ -39,15 +34,19 @@ fn main() -> Result<(), EmulatorError> {
         a.insert(0, opts.exec.display().to_string());
         a
     };
-    let mut emu =
-        Emulator::<_, LinuxHandler>::new(config, MIPS::new(MipsProfile::default()), &binary, argv)?;
+    let mips_profile = MipsProfile::default();
+    let arch = MIPS::new(mips_profile.pointer_size());
+    let runner = LinuxRunner::new();
+    let mut emu = Emulator::<_, LinuxRunner>::new(config, arch, mips_profile.mode(), runner)?;
+
+    let load_info = emu.load(&binary, argv)?;
 
     // let mut uc: Unicorn<_> = {
     //     let arch = ;
     //     build_core(arch)
     // };
 
-    emu.run(None, None, None, None)?;
+    emu.run(load_info.entrypoint, None, None, None)?;
     Ok(())
 }
 

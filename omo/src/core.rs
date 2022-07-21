@@ -1,14 +1,8 @@
-use crate::arch::ArchT;
-use crate::cc::CallingConvention;
-use crate::data::{EngineData};
-use crate::memory::{Memory, MemoryManager};
-use crate::registers::{RegisterInfo, Registers};
-use crate::stack::Stack;
+use crate::data::Machine;
 
 use unicorn_engine::Unicorn;
-use crate::loader::LoadInfo;
 
-pub type Core<'a, A, O> = Unicorn<'a, EngineData<A, O>>;
+pub type Core<'a, A> = Unicorn<'a, Machine<A>>;
 
 // pub fn build_core<'a, A: ArchT>(arch: A) -> Core<'a, A, O> {
 //     let data = Data {

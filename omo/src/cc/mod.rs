@@ -1,7 +1,10 @@
-use crate::errors::Result;
-use crate::memory::PointerSizeT;
-use crate::registers::{Registers, StackRegister};
-use crate::stack::Stack;
+use crate::{
+    data::Mach,
+    errors::Result,
+    memory::PointerSizeT,
+    registers::{Registers, StackRegister},
+    stack::Stack,
+};
 use anyhow::anyhow;
 
 pub trait CallingConvention {
@@ -18,13 +21,19 @@ pub trait CallingConvention {
     // argbits: argument size in bits (default: arch native size)
     //
     // Returns: raw value
-    fn get_raw_param<'a>(&self, slot: u64, argbits: Option<u64>) -> Result<u64>;
-    fn set_raw_param<'a>(&mut self, slot: u64, value: u64, argbits: Option<u64>) -> Result<()>;
-    fn get_return_value(&self) -> Result<u64>;
+    fn get_raw_param(&self, mach: &mut impl Mach, slot: u64, argbits: Option<u64>) -> Result<u64>;
+    fn set_raw_param(
+        &self,
+        mach: &mut impl Mach,
+        slot: u64,
+        value: u64,
+        argbits: Option<u64>,
+    ) -> Result<()>;
+    fn get_return_value(&self, mach: &mut impl Mach) -> Result<u64>;
     // TODO: handle negative value?
-    fn set_return_value(&mut self, val: u64) -> Result<()>;
-    fn set_return_address(&mut self, addr: u64) -> Result<()>;
-    fn reserve(&mut self, nslots: u64) -> Result<()>;
+    fn set_return_value(&self, mach: &mut impl Mach, val: u64) -> Result<()>;
+    fn set_return_address(&self, mach: &mut impl Mach, addr: u64) -> Result<()>;
+    fn reserve(&self, mach: &mut impl Mach, nslots: u64) -> Result<()>;
 
     /// Reserve slots for function arguments.
     ///
@@ -32,7 +41,7 @@ pub trait CallingConvention {
     ///
     /// Args:
     /// nslots: number of arg slots to reserve
-    fn unwind(&mut self, nslots: u64) -> Result<u64>;
+    fn unwind(&self, mach: &mut impl Mach, nslots: u64) -> Result<u64>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

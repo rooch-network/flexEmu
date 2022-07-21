@@ -1,17 +1,14 @@
-use crate::core::Core;
-use crate::os::linux::Linux;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use strum::EnumString;
-use strum::EnumVariantNames;
+use strum::{EnumString, EnumVariantNames};
 use unicorn_engine::unicorn_const::Arch;
 
 const LINUX_SYSCALL_TABLE: &str = include_str!("linux_syscall_table.json");
 
 fn parse_syscall_table(data: &str) -> BTreeMap<u8, BTreeMap<u64, String>> {
-    let data: HashMap<String, HashMap<u64, String>> = serde_json::from_str(data).unwrap();
-    let mut result = Default::default();
+    let data: HashMap<String, BTreeMap<u64, String>> = serde_json::from_str(data).unwrap();
+    let mut result: BTreeMap<_, _> = Default::default();
     for (k, v) in data {
         let arch = match k.to_lowercase().as_str() {
             "mips" => Arch::MIPS,
@@ -27,6 +24,7 @@ lazy_static! {
         parse_syscall_table(LINUX_SYSCALL_TABLE);
 }
 
+#[allow(non_camel_case_types)]
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames, EnumString,
 )]

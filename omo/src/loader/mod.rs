@@ -1,18 +1,20 @@
-use crate::arch::ArchT;
-use crate::errors::EmulatorError;
-use crate::memory::Memory;
-use crate::registers::Registers;
-use crate::stack::Stack;
-use crate::utils::{align, align_up, seg_perm_to_uc_prot, Packer};
-use crate::{errors, PAGE_SIZE};
+use crate::{
+    data::Mach,
+    errors,
+    errors::EmulatorError,
+    memory::Memory,
+    stack::Stack,
+    utils::{align, align_up, seg_perm_to_uc_prot, Packer},
+    PAGE_SIZE,
+};
 use anyhow::anyhow;
 use bytes::{BufMut, BytesMut};
-use goblin::container::Endian;
-use goblin::elf::program_header::PT_LOAD;
-use goblin::elf::Elf;
+use goblin::{
+    container::Endian,
+    elf::{program_header::PT_LOAD, Elf},
+};
 use log::debug;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use unicorn_engine::unicorn_const::{uc_error, MemRegion, Permission};
 
@@ -82,7 +84,7 @@ impl ElfLoader {
         config: &Config,
         binary: impl AsRef<[u8]>,
         argv: Vec<String>,
-        uc: &mut (impl Memory + Registers + Stack + ArchT),
+        uc: &mut impl Mach,
     ) -> Result<LoadInfo, errors::EmulatorError> {
         let stack_address = config.stack_address;
         let stack_size = config.stack_size;
@@ -129,13 +131,13 @@ impl ElfLoader {
         load_result.init_stack_address = uc.sp()?;
 
         // init stack address
-        uc.set_sp(stack_address+stack_size)?;
+        uc.set_sp(stack_address + stack_size)?;
         // set elf table
         Self::load_elf_table(uc, &elf, &load_result, argv, BTreeMap::default())?;
         Ok(load_result)
     }
     fn load_elf_table(
-        uc: &mut (impl Memory + Registers + Stack + ArchT),
+        uc: &mut impl Mach,
         elf: &Elf,
         load_result: &LoadInfo,
         argv: Vec<String>, // argv.len must >0

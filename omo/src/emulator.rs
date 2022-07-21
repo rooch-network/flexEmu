@@ -1,28 +1,65 @@
 //use crate::arch::Core;
 
-use crate::arch::ArchT;
-use crate::config::OmoConfig;
-use crate::core::Core;
-use crate::errors::EmulatorError;
-use crate::loader::{ElfLoader, LoadInfo};
-use crate::os::Os;
-use std::marker::PhantomData;
+use crate::{
+    arch::{ArchInfo, ArchT},
+    config::OmoConfig,
+    core::Core,
+    data::Machine,
+    errors::EmulatorError,
+    loader::{ElfLoader, LoadInfo},
+    os::Runner,
+};
 
-pub struct Emu<'a, A, Os> {
-    pub(crate) core: Core<'a, A, Os>,
-    pub(crate) loader_info: LoadInfo,
+use unicorn_engine::unicorn_const::Mode;
+
+pub struct Emulator<'a, A, Os> {
+    config: OmoConfig,
+    core: Core<'a, A>,
+    os: Os,
 }
 
-impl<'a, A: ArchT, O: Os> Emu<'a, A, O> {
+impl<'a, A, O> Emulator<'a, A, O> {
+    pub fn engine(&self) -> &Core<'a, A> {
+        &self.core
+    }
+    pub fn runner(&self) -> &O {
+        &self.os
+    }
+}
+
+impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
+    pub fn new(conf: OmoConfig, arch: A, mode: Mode, os: O) -> Result<Self, EmulatorError> {
+        let machine = Machine::create(arch, mode);
+        // let binary = binary.as_ref();
+        // let load_result = ElfLoader::load(&config.os, binary, argv, &mut machine)?;
+        // os.on_load(&mut machine, load_result.clone())?;
+
+        Ok(Self {
+            config: conf,
+            core: machine,
+            os,
+        })
+    }
+
+    pub fn load(
+        &mut self,
+        binary: impl AsRef<[u8]>,
+        argv: Vec<String>,
+    ) -> Result<LoadInfo, EmulatorError> {
+        let binary = binary.as_ref();
+        let load_result = ElfLoader::load(&self.config.os, binary, argv, &mut self.core)?;
+        self.os.on_load(&mut self.core, load_result)?;
+        Ok(load_result)
+    }
+
     pub fn run(
         &mut self,
-        entrypoint: Option<u64>,
+        entrypoint: u64,
         exitpoint: Option<u64>,
         timeout: Option<u64>,
         count: Option<usize>,
     ) -> Result<(), EmulatorError> {
-        let entrypoint = entrypoint.unwrap_or(self.loader_info.entrypoint);
-        let exitpoint = exitpoint.unwrap_or_else(|| default_exitpoint(self.arch.pointer_size()));
+        let exitpoint = exitpoint.unwrap_or_else(|| default_exitpoint(self.core.pointer_size()));
         self.core.emu_start(
             entrypoint,
             exitpoint,

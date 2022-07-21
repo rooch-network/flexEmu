@@ -1,5 +1,6 @@
 use crate::core::Core;
 
+use crate::arch::ArchT;
 use unicorn_engine::unicorn_const::uc_error;
 
 pub trait Registers {
@@ -21,19 +22,18 @@ pub trait StackRegister {
         Ok(new_sp)
     }
 }
-impl<'a, A, O> StackRegister for Core<'a, A, O> {
+
+impl<'a, A: ArchT> StackRegister for Core<'a, A> {
     fn sp(&self) -> Result<u64, uc_error> {
-        let sp_reg = self.get_data().register_info.sp;
-        self.read(sp_reg)
+        self.read(A::SP)
     }
 
     fn set_sp(&mut self, value: u64) -> Result<(), uc_error> {
-        let sp_reg = self.get_data().register_info.sp;
-        self.write(sp_reg, value)
+        self.write(A::SP, value)
     }
 }
 
-impl<'a, A, O> Registers for Core<'a, A, O> {
+impl<'a, A: ArchT> Registers for Core<'a, A> {
     fn read(&self, reg: impl Into<i32>) -> Result<u64, uc_error> {
         self.reg_read(reg)
     }
@@ -41,13 +41,11 @@ impl<'a, A, O> Registers for Core<'a, A, O> {
         self.reg_write(reg, value)
     }
     fn pc(&self) -> Result<u64, uc_error> {
-        let pc_reg = self.get_data().register_info.pc;
-        self.read(pc_reg)
+        self.read(A::PC)
     }
 
     fn set_pc(&mut self, value: u64) -> Result<(), uc_error> {
-        let pc_reg = self.get_data().register_info.pc;
-        self.write(pc_reg, value)
+        self.write(A::PC, value)
     }
 }
 
