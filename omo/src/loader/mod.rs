@@ -66,7 +66,7 @@ pub struct ElfLoader {
 }
 
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
-pub struct LoadResult {
+pub struct LoadInfo {
     pub entrypoint: u64,
     pub elf_mem_start: u64,
     pub elf_entry: u64,
@@ -83,7 +83,7 @@ impl ElfLoader {
         binary: impl AsRef<[u8]>,
         argv: Vec<String>,
         uc: &mut (impl Memory + Registers + Stack + ArchT),
-    ) -> Result<LoadResult, errors::EmulatorError> {
+    ) -> Result<LoadInfo, errors::EmulatorError> {
         let stack_address = config.stack_address;
         let stack_size = config.stack_size;
 
@@ -112,7 +112,7 @@ impl ElfLoader {
         let (mem_start, mem_end) = Self::load_elf_segments(uc, b, &elf, load_address)?;
         debug!("mem_start: {}, mem_end: {}", mem_start, mem_end);
 
-        let mut load_result = LoadResult::default();
+        let mut load_result = LoadInfo::default();
 
         let entrypoint = load_address + elf.header.e_entry;
 
@@ -137,7 +137,7 @@ impl ElfLoader {
     fn load_elf_table(
         uc: &mut (impl Memory + Registers + Stack + ArchT),
         elf: &Elf,
-        load_result: &LoadResult,
+        load_result: &LoadInfo,
         argv: Vec<String>, // argv.len must >0
         envs: BTreeMap<String, String>,
     ) -> Result<(), uc_error> {

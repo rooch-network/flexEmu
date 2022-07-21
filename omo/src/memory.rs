@@ -55,7 +55,7 @@ pub trait Memory {
     //fn align_up(&self, value: u64, alignment: Option<usize>) -> u64;
 }
 
-impl<'a, A: ArchT> Memory for Core<'a, A> {
+impl<'a, A: ArchT, O> Memory for Core<'a, A, O> {
     fn mem_map(
         &mut self,
         MemRegion { begin, end, perms }: MemRegion,

@@ -1,13 +1,13 @@
-use std::collections::HashMap;
 use crate::cc::{CallingConvention, CallingConventionCommon};
 use crate::core::Core;
 use crate::errors::EmulatorError;
 use crate::memory::PointerSizeT;
-use goblin::container::Endian;
-use unicorn_engine::unicorn_const::{Arch, Mode};
-use unicorn_engine::RegisterMIPS;
 use crate::registers::Registers;
 use crate::stack::Stack;
+use goblin::container::Endian;
+use std::collections::HashMap;
+use unicorn_engine::unicorn_const::{Arch, Mode, Query};
+use unicorn_engine::{RegisterMIPS, Unicorn};
 
 pub trait ArchT {
     fn endian(&self) -> Endian;
@@ -126,7 +126,47 @@ impl MipsCC {
     const RET_ADDR_ON_STACK: bool = false;
 }
 
-impl<'a, A: ArchT> ArchT for Core<'a, A> {
+impl<'a, D> ArchT for Unicorn<'a, D> {
+    fn endian(&self) -> Endian {
+        let mode = self.query(Query::MODE).unwrap();
+        if mode & Mode::BIG_ENDIAN == 1 {
+            Endian::Big
+        } else {
+            Endian::Little
+        }
+    }
+
+    fn pointer_size(&self) -> PointerSizeT {
+        let mode = self.query(Query::MODE).unwrap();
+        if mode & Mode::MODE_32 == 1 {
+            4
+        } else if mode & Mode::MODE_64 == 1 {
+            8
+        } else if mode & Mode::MODE_16 == 1 {
+            2
+        } else {
+            unimplemented!()
+        }
+    }
+
+    fn pc_reg_id(&self) -> i32 {
+        todo!()
+    }
+
+    fn sp_reg_id(&self) -> i32 {
+        todo!()
+    }
+
+    fn arch(&self) -> Arch {
+        todo!()
+    }
+
+    fn mode(&self) -> Mode {
+        Mode::from_bits(self.query(Query::MODE).unwrap() as i32).unwrap()
+    }
+}
+
+impl<'a, A: ArchT, O> ArchT for Core<'a, A, O> {
     fn endian(&self) -> Endian {
         self.get_data().arch_info.endian()
     }
@@ -152,7 +192,7 @@ impl<'a, A: ArchT> ArchT for Core<'a, A> {
     }
 }
 
-impl<'a> CallingConvention for Core<'a, MIPS> {
+impl<'a, O> CallingConvention for Core<'a, MIPS, O> {
     #[inline]
     fn get_num_slots(_argbits: u64) -> u64 {
         1

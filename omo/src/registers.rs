@@ -21,7 +21,7 @@ pub trait StackRegister {
         Ok(new_sp)
     }
 }
-impl<'a, A> StackRegister for Core<'a, A> {
+impl<'a, A, O> StackRegister for Core<'a, A, O> {
     fn sp(&self) -> Result<u64, uc_error> {
         let sp_reg = self.get_data().register_info.sp;
         self.read(sp_reg)
@@ -33,7 +33,7 @@ impl<'a, A> StackRegister for Core<'a, A> {
     }
 }
 
-impl<'a, A> Registers for Core<'a, A> {
+impl<'a, A, O> Registers for Core<'a, A, O> {
     fn read(&self, reg: impl Into<i32>) -> Result<u64, uc_error> {
         self.reg_read(reg)
     }

@@ -75,4 +75,4 @@ pub trait Stack: StackRegister + Memory + ArchT {
     }
 }
 
-impl<'a, A: ArchT> Stack for Core<'a, A> {}
+impl<'a, A: ArchT, O> Stack for Core<'a, A, O> {}

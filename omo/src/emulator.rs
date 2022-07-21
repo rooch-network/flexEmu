@@ -2,38 +2,18 @@
 
 use crate::arch::ArchT;
 use crate::config::OmoConfig;
-use crate::core::{build_core, Core};
+use crate::core::Core;
 use crate::errors::EmulatorError;
-use crate::loader::{ElfLoader, LoadResult};
-use crate::os::{attach_handler, SysCallHandler};
+use crate::loader::{ElfLoader, LoadInfo};
+use crate::os::Os;
 use std::marker::PhantomData;
 
-pub struct Emulator<'a, A, Os> {
-    arch: Core<'a, A>,
-    loader_info: LoadResult,
-    phantom: PhantomData<Os>,
+pub struct Emu<'a, A, Os> {
+    pub(crate) core: Core<'a, A, Os>,
+    pub(crate) loader_info: LoadInfo,
 }
 
-impl<'a, A: ArchT, Os: SysCallHandler<A>> Emulator<'a, A, Os> {
-    pub fn new(
-        config: OmoConfig,
-        arch: A,
-        binary: impl AsRef<[u8]>,
-        argv: Vec<String>,
-    ) -> Result<Self, EmulatorError> {
-        let mut uc = build_core(arch);
-        let binary = binary.as_ref();
-        let load_result = ElfLoader::load(&config.os, binary, argv, &mut uc)?;
-        uc.get_data_mut().load_info = Some(load_result);
-        attach_handler::<_, Os>(&mut uc)?;
-
-        Ok(Self {
-            arch: uc,
-            loader_info: load_result,
-            phantom: PhantomData,
-        })
-    }
-
+impl<'a, A: ArchT, O: Os> Emu<'a, A, O> {
     pub fn run(
         &mut self,
         entrypoint: Option<u64>,
@@ -43,7 +23,7 @@ impl<'a, A: ArchT, Os: SysCallHandler<A>> Emulator<'a, A, Os> {
     ) -> Result<(), EmulatorError> {
         let entrypoint = entrypoint.unwrap_or(self.loader_info.entrypoint);
         let exitpoint = exitpoint.unwrap_or_else(|| default_exitpoint(self.arch.pointer_size()));
-        self.arch.emu_start(
+        self.core.emu_start(
             entrypoint,
             exitpoint,
             timeout.unwrap_or_default(),

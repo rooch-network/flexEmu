@@ -1,33 +1,25 @@
 use crate::arch::ArchT;
 use crate::cc::CallingConvention;
-use crate::data::Data;
+use crate::data::{EngineData};
 use crate::memory::{Memory, MemoryManager};
 use crate::registers::{RegisterInfo, Registers};
 use crate::stack::Stack;
 
 use unicorn_engine::Unicorn;
-use crate::loader::LoadResult;
+use crate::loader::LoadInfo;
 
-pub trait Omo {
-    type Memory: Memory;
-    type Stack: Stack;
-    type Registers: Registers;
-    type Arch: ArchT;
-    type CC: CallingConvention;
-}
+pub type Core<'a, A, O> = Unicorn<'a, EngineData<A, O>>;
 
-pub type Core<'a, A> = Unicorn<'a, Data<A>>;
-
-pub fn build_core<'a, A: ArchT>(arch: A) -> Core<'a, A> {
-    let data = Data {
-        register_info: RegisterInfo::new(arch.pc_reg_id(), arch.sp_reg_id()),
-        memories: MemoryManager::default(),
-        arch_info: arch,
-        load_info: None,
-    };
-    let uc = Unicorn::new_with_data(data.arch_info.arch(), data.arch_info.mode(), data).unwrap();
-    uc
-}
+// pub fn build_core<'a, A: ArchT>(arch: A) -> Core<'a, A, O> {
+//     let data = Data {
+//         register_info: RegisterInfo::new(arch.pc_reg_id(), arch.sp_reg_id()),
+//         memories: MemoryManager::default(),
+//         arch_info: arch,
+//         load_info: None,
+//     };
+//     let uc = Unicorn::new_with_data(data.arch_info.arch(), data.arch_info.mode(), data).unwrap();
+//     uc
+// }
 
 // pub struct Core<'a, A> {
 //     uc: Unicorn<'a, Data<A>>,
