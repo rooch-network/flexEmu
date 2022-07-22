@@ -43,6 +43,9 @@ pub enum SysCalls {
     SIGALTSTACK,
     BRK,
     EXIT_GROUP,
+    MMAP2,
+    MREMAP,
+    MUNMAP,
 }
 
 impl SysCalls {

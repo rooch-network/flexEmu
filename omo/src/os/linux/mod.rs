@@ -18,11 +18,15 @@ use std::{
     io::{stderr, stdout, Write},
 };
 
+use crate::utils::{align, seg_perm_to_uc_prot};
+use bytes::Bytes;
+use log::{debug, warn};
 use std::{rc::Rc, str::FromStr};
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
+
 pub mod syscall;
 
 #[derive(Debug, Default)]
@@ -33,13 +37,15 @@ pub struct LinuxRunner {
 #[derive(Debug, Default)]
 struct Inner {
     sigaction_act: HashMap<u64, Vec<u64>>,
+    mmap_address: u64,
     brk_address: u64,
 }
 
 impl LinuxRunner {
-    pub fn new() -> Self {
+    pub fn new(mmap_address: u64) -> Self {
         let inner = Inner {
             sigaction_act: HashMap::default(),
+            mmap_address,
             brk_address: 0,
         };
         Self {
@@ -148,6 +154,28 @@ impl Inner {
             SysCalls::EXIT_GROUP => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.exit_group(core, p0)?
+            }
+            SysCalls::MMAP2 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 3, None)?;
+                let p4 = cc.get_raw_param(core, 4, None)?;
+                let p5 = cc.get_raw_param(core, 5, None)?;
+                self.mmap2(core, p0, p1, p2, p3, p4, p5, 2)?
+            }
+            SysCalls::MREMAP => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 3, None)?;
+                let p4 = cc.get_raw_param(core, 4, None)?;
+                self.mremap(core, p0, p1, p2, p3, p4)?
+            }
+            SysCalls::MUNMAP => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.munmap(core, p0, p1)?
             }
             _ => {
                 panic!("please handle syscall: {:?}", syscall);
@@ -379,6 +407,126 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         log::debug!("exit_group({}) pc: {}", code, core.pc()?);
         core.emu_stop()?;
+        Ok(0)
+    }
+
+    fn mmap2<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        addr: u64,
+        length: u64,
+        prot: u64,
+        flags: u64,
+        fd: u64,
+        mut pgoffset: u64,
+        ver: u8,
+    ) -> Result<i64, uc_error> {
+        debug!(
+            "[mmap2] {}, {}, {}, {}, {}, {}",
+            &addr, &length, &prot, &flags, &fd, &pgoffset
+        );
+        const MAP_FAILED: i64 = -1;
+
+        const MAP_SHARED: u64 = 0x01;
+        const MAP_FIXED: u64 = 0x10;
+        const MAP_ANONYMOUS: u64 = 0x20;
+        let arch = core.get_arch();
+        // mask off perms bits that are not supported by unicorn
+        let perms = Permission::from_bits_truncate(prot as u32);
+
+        let page_size = core.pagesize();
+        if core.pointer_size() == 8 {
+        } else {
+            match core.get_arch() {
+                Arch::MIPS => {
+                    //MAP_ANONYMOUS = 2048;
+                    if ver == 2 {
+                        pgoffset = pgoffset * page_size;
+                    }
+                }
+                _ => todo!(),
+            }
+        }
+
+        let mut mmap_base = align(addr as u32, page_size as u32) as u64;
+        if flags & MAP_FIXED != 0 && mmap_base != addr {
+            return Ok(MAP_FAILED);
+        }
+
+        let mmap_size =
+            align_up((length - (addr & (page_size - 1))) as u32, page_size as u32) as u64;
+
+        let mut need_map = true;
+        if mmap_base != 0 {
+            // already mapped.
+            if Memory::is_mapped(core, mmap_base as u64, mmap_size as usize)? {
+                // if map fixed, we just protect mem
+                if flags & MAP_FIXED != 0 {
+                    debug!("mmap2 - MAP_FIXED, mapping not needed");
+
+                    Memory::mprotect(core, mmap_base as u64, mmap_size as usize, perms)?;
+                    need_map = false;
+                } else {
+                    // or else, we need to reallocate mem somewhere else.
+                    mmap_base = 0;
+                }
+            }
+        }
+        if need_map {
+            if mmap_base == 0 {
+                mmap_base = self.mmap_address;
+                self.mmap_address = mmap_base + mmap_size;
+            }
+
+            debug!(
+                "[mmap2] mapping for [{},{})",
+                mmap_base,
+                mmap_size + mmap_size
+            );
+            Memory::mem_map(
+                core,
+                MemRegion {
+                    begin: mmap_base as u64,
+                    end: (mmap_base + mmap_size) as u64,
+                    perms,
+                },
+                Some("[syscall_mmap2]".to_string()),
+            )?;
+
+            // FIXME: MIPS32 Big Endian
+            if arch == Arch::MIPS {
+                Memory::write(core, mmap_base as u64, vec![0u8; mmap_size as usize])?;
+            }
+        }
+        // TODO: should handle fd?
+        warn!("[mmap2] fd {} not handled", fd);
+        Ok(mmap_base as i64)
+    }
+
+    fn mremap<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        old_addr: u64,
+        old_size: u64,
+        new_size: u64,
+        flags: u64,
+        new_addr: u64,
+    ) -> Result<i64, uc_error> {
+        debug!(
+            "[mremap] {} {} {} {} {}",
+            old_addr, old_size, new_size, flags, new_addr
+        );
+        Ok(-1)
+    }
+    fn munmap<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        addr: u64,
+        length: u64,
+    ) -> Result<i64, uc_error> {
+        debug!("[munmap] addr: {:#x}, length: {:#x}", addr, length);
+        let length = align_up(length as u32, core.pagesize() as u32);
+        Memory::mem_unmap(core, addr, length as usize)?;
         Ok(0)
     }
 }

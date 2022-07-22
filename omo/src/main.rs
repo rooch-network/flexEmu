@@ -38,7 +38,7 @@ fn main() -> Result<(), EmulatorError> {
     let env = opts.envs.clone();
     let mips_profile = MipsProfile::default();
     let arch = MIPS::new(mips_profile.pointer_size());
-    let runner = LinuxRunner::new();
+    let runner = LinuxRunner::new(config.os.mmap_address);
     let mut emu = Emulator::<_, LinuxRunner>::new(config, arch, mips_profile.mode(), runner)?;
 
     let load_info = emu.load(&binary, argv, env)?;
