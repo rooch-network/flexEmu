@@ -1,11 +1,8 @@
 # OMO
 
 A bytecode level program emulator with per-step state proof.
-It can be used to generate challenge proof of optimistic rollup.
-
-**Arch**: MIPS32 at present, will support more.
-**Executable File Format**: ELF 32-bit MSB executable at present.
-**OS**: Linux.
+It can be used to generate challenge proof of optimistic rollup,
+and maybe other scenarios in blockchain which need program state proof.
 
 The core idea is derived from [cannon](https://github.com/ethereum-optimism/cannon) and [qiling](https://github.com/qilingframework/qiling).
 
@@ -48,6 +45,14 @@ Run ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-exampl
 E1=a
 E2=b
 ```
+
+## Supported Archs
+
+**Arch**: MIPS32 at present, will support more.
+
+**Executable File Format**: ELF 32-bit MSB executable at present.
+
+**OS**: Linux.
 
 ## Other resources
 
