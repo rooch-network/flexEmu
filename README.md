@@ -1,54 +1,60 @@
-omo
-===
-
-[中文](README.zh_CN.md)
+# OMO
 
 A bytecode level program emulator with per-step state proof.
+It can be used to generate challenge proof of optimistic rollup.
 
-**Arch**: MIPS32 version 1 (SYSV) at present, will support more.
-
+**Arch**: MIPS32 at present, will support more.
 **Executable File Format**: ELF 32-bit MSB executable at present.
+**OS**: Linux.
 
-## Features
+The core idea is derived from [cannon](https://github.com/ethereum-optimism/cannon) and [qiling](https://github.com/qilingframework/qiling).
 
-1. Crossing hardware platform (Coming soon)
-2. Various smart chain virtual machine embed supports
-3. Safe execution environment
+## Development Setup
 
-## Background
+To cross compile crates to mips or other targets.
+You need:
 
-### Limitation of Blockchain with Smart Contract
+- [rust](https://rustup.rs/)
+- [cross](https://github.com/cross-rs/cross).
+- Docker: cross needs it.
 
-The most valuable resource on the chain is gas, because the gas of each block is capped, and the average block-out time
-is fixed, so there is actually a limit to the number of computational steps that can be done per unit of time:
+## Get Started
 
-`TPS = (Max_Gas/Gas_Per_TXN)/Block-out_Time`
+The project contains two crates:
 
-Obviously, we need to try to reduce gas per txn.
+- `./omo` is the main entrypoint of the omo emulator.
+- `./rust-mips-example` is an example crate. it is configured to build into a linux mips binary, which can be run by `omo`.
 
-The direct way is to package multi txn into one, and that's the core idea of rollup.
+First, we need to compile the `rust-mips-example`:
 
-### Optimistic Rollup
+```shell
+cd ./rust-mips-example
+cross build --target mips-unknown-linux-musl --release -v
+# the compiled mips binary will be ./target/mips-unknown-linux-musl/release/rust-mips-example
+file target/mips-unknown-linux-musl/release/rust-mips-example
+```
 
-In last section, we've known that we need rollup, but who will take this responsibility, is it safe, how to challenge
-the state?
+then we use the omo to run this `target/mips-unknown-linux-musl/release/rust-mips-example`
 
-First, we need to lock collateralized assets on chain for off-chain execution. Just like what we do in
-Bitcoin Lightning Network.
+```shell
+cd ./omo
+cargo run -- --config config.toml.example --env E1=a --env E2=b ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
+```
 
-Then, the verifier could be elected from community or DApp organization who deserves to be trusted. We are optimistic
-that the chances of them doing evil are low because there is no obvious benefit.
+it will output:
 
-The verifier provides abilities of persisting states on local for executing txn. What's more, we could set breakpoint
-for finding wrong txn if there is one in challenge process.
+```
+Run ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example
+E1=a
+E2=b
+```
 
-In one word, Optimistic Rollup is a collateral-based off-chain solution to achieve scalability.
+## Other resources
 
-### Question: Is there any other way to improve TPS safely?
+[intro to omo - part1](./docs/intro-to-omo-part1.zh.md)
+[prototype of move layer2 using cannon](./docs/prototype_of_cannon_in_move.zh.md)
+[background of layer2](./docs/background.md)
 
-Yes! But OMO is just focused on Optimistic Rollup.
+## License
 
-## Acknowledge
-
-Inspired by [qiling](https://github.com/qilingframework/qiling).
-
+Apache License 2.0
