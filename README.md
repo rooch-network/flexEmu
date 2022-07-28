@@ -15,7 +15,7 @@ To cross compile crates to mips or other targets.
 You need:
 
 - [rust](https://rustup.rs/)
-- [cross](https://github.com/cross-rs/cross).
+- [cross](https://github.com/cross-rs/cross)
 - Docker: cross needs it.
 
 ## Get Started
@@ -51,9 +51,9 @@ E2=b
 
 ## Other resources
 
-[intro to omo - part1](./docs/intro-to-omo-part1.zh.md)
-[prototype of move layer2 using cannon](./docs/prototype_of_cannon_in_move.zh.md)
-[background of layer2](./docs/background.md)
+- [intro to omo - part1](./docs/intro-to-omo-part1.zh.md)
+- [prototype of move layer2 using cannon](./docs/prototype_of_cannon_in_move.zh.md)
+- [background of layer2](./docs/background.md)
 
 ## License
 
