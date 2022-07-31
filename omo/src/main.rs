@@ -1,5 +1,6 @@
 use byteorder::ByteOrder;
 use clap::Parser;
+use log::{info, LevelFilter};
 use omo::{
     arch::mips::{MipsProfile, MIPS},
     config::OmoConfig,
@@ -20,10 +21,15 @@ struct Options {
     args: Vec<String>,
     #[clap(long = "env", parse(try_from_str=parse_key_val))]
     envs: Vec<(String, String)>,
+    #[clap(short, long)]
+    steps: Option<usize>,
 }
 
 fn main() -> Result<(), EmulatorError> {
-    env_logger::init();
+    env_logger::builder()
+        .filter_level(LevelFilter::Info)
+        .parse_default_env()
+        .init();
 
     let opts: Options = Options::parse();
 
@@ -35,7 +41,7 @@ fn main() -> Result<(), EmulatorError> {
         a.insert(0, opts.exec.display().to_string());
         a
     };
-    let env = opts.envs.clone();
+    let env = opts.envs;
     let mips_profile = MipsProfile::default();
     let arch = MIPS::new(mips_profile.pointer_size());
     let runner = LinuxRunner::new();
@@ -47,8 +53,24 @@ fn main() -> Result<(), EmulatorError> {
     //     let arch = ;
     //     build_core(arch)
     // };
+    info!("load info: {:?}", &load_info);
+    let state_change = emu.run_until(
+        load_info.entrypoint,
+        None,
+        None,
+        opts.steps.unwrap_or_default(),
+    )?;
 
-    emu.run(load_info.entrypoint, None, None, None)?;
+    serde_json::to_writer_pretty(
+        std::fs::File::options()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open("state_change.json")
+            .unwrap(),
+        &state_change,
+    )
+    .unwrap();
     Ok(())
 }
 

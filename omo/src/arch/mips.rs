@@ -55,6 +55,7 @@ impl MipsProfile {
 #[derive(Debug)]
 pub struct MIPS {
     cc: MipsCC,
+    registers: Vec<i32>,
 }
 impl ArchT for MIPS {
     type CC = MipsCC;
@@ -62,12 +63,22 @@ impl ArchT for MIPS {
     const PC: i32 = RegisterMIPS::PC as i32;
     const SP: i32 = RegisterMIPS::SP as i32;
 
+    #[inline]
     fn cc(&self) -> Self::CC {
         self.cc.clone()
+    }
+
+    #[inline]
+    fn registers(&self) -> &[i32] {
+        &self.registers
     }
 }
 
 impl MIPS {
+    // const REGS: Vec<i32> = (RegisterMIPS::PC as i32..=RegisterMIPS::ENDING as i32)
+    //     .into_iter()
+    //     .collect();
+
     pub fn new(pointer_size: PointerSizeT) -> Self {
         Self {
             cc: MipsCC {
@@ -80,6 +91,9 @@ impl MIPS {
                     pointer_size,
                 ),
             },
+            registers: (RegisterMIPS::PC as i32..=RegisterMIPS::ENDING as i32)
+                .into_iter()
+                .collect(),
         }
     }
 }

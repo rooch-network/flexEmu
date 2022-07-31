@@ -150,7 +150,7 @@ impl ElfLoader {
         elf_table.put_slice(&packer.pack(argv.len() as u64));
         // write argv
         for s in &argv {
-            uc.aligned_push_str(s)?;
+            Stack::aligned_push_str(uc, s)?;
             let stack_addr = uc.sp()?;
             elf_table.put_slice(&packer.pack(stack_addr));
         }
@@ -159,22 +159,25 @@ impl ElfLoader {
 
         // write env
         for (k, v) in &envs {
-            uc.aligned_push_str(&format!("{}={}", k, v))?;
+            Stack::aligned_push_str(uc, &format!("{}={}", k, v))?;
             elf_table.put_slice(&packer.pack(uc.sp()?));
         }
         // add a nullptr sentinel
         elf_table.put_slice(&packer.pack(0));
 
         let execfn = {
-            uc.aligned_push_str(argv.first().map(|s| s.as_str()).unwrap_or_else(|| "main"))?;
+            Stack::aligned_push_str(
+                uc,
+                argv.first().map(|s| s.as_str()).unwrap_or_else(|| "main"),
+            )?;
             uc.sp()?
         };
         let randdata_addr = {
-            uc.aligned_push_bytes(&[10u8; 16], None)?;
+            Stack::aligned_push_bytes(uc, &[10u8; 16], None)?;
             uc.sp()?
         };
         let cpustr_addr = {
-            uc.aligned_push_str(&format!("{:?}", uc.arch()))?;
+            Stack::aligned_push_str(uc, &format!("{:?}", uc.arch()))?;
             uc.sp()?
         };
         let aux_entries = vec![
@@ -248,9 +251,8 @@ impl ElfLoader {
 
         let mut load_regions = Vec::new();
         for seg in &load_segments {
-            let lbound = align((load_address + seg.p_vaddr) as u32, PAGE_SIZE) as u64;
-            let ubound =
-                align_up((load_address + seg.p_vaddr + seg.p_memsz) as u32, PAGE_SIZE) as u64;
+            let lbound = align(load_address + seg.p_vaddr, PAGE_SIZE);
+            let ubound = align_up(load_address + seg.p_vaddr + seg.p_memsz, PAGE_SIZE);
             let perms = seg_perm_to_uc_prot(seg.p_flags);
             if load_regions.is_empty() {
                 load_regions.push(MemRegion {
@@ -289,12 +291,18 @@ impl ElfLoader {
         }
 
         for region in &load_regions {
+            debug!("mmap {:?}", region);
             uc.mem_map(region.clone(), None)?;
         }
 
         for seg in &load_segments {
             let data = &binary.as_ref()[seg.file_range()];
             Memory::write(uc, load_address + seg.p_vaddr, data)?;
+            debug!(
+                "load binary segment: {} - {}",
+                load_address + seg.p_vaddr,
+                load_address + seg.p_vaddr + data.len() as u64
+            );
         }
 
         let (mem_start, mem_end) = (

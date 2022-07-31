@@ -3,14 +3,22 @@
 use crate::{
     arch::{ArchInfo, ArchT},
     config::OmoConfig,
-    engine::{Engine, Machine},
+    engine::{Engine, Machine, MemoryState},
     errors::EmulatorError,
     loader::{ElfLoader, LoadInfo},
     os::Runner,
+    registers::{RegisterState, Registers},
 };
-use std::collections::BTreeMap;
-
-use unicorn_engine::unicorn_const::Mode;
+use log::{info, trace};
+use num_traits::Zero;
+use serde::{Deserialize, Serialize};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
+    ops::Deref,
+    rc::Rc,
+};
+use unicorn_engine::unicorn_const::{HookType, MemType, Mode};
 
 pub struct Emulator<'a, A, Os> {
     config: OmoConfig,
@@ -29,10 +37,51 @@ impl<'a, A, O> Emulator<'a, A, O> {
 
 impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
     pub fn new(conf: OmoConfig, arch: A, mode: Mode, os: O) -> Result<Self, EmulatorError> {
-        let machine = Machine::create(arch, mode);
+        let mut machine = Machine::create(arch, mode);
         // let binary = binary.as_ref();
         // let load_result = ElfLoader::load(&config.os, binary, argv, &mut machine)?;
         // os.on_load(&mut machine, load_result.clone())?;
+        machine.add_mem_hook(
+            HookType::MEM_WRITE | HookType::MEM_READ_AFTER,
+            0,
+            //align_up((conf.os.stack_address + conf.os.stack_size) as u32, 32) as u64,
+            u32::MAX as u64,
+            {
+                |uc, mem_type, addr, size, value| {
+                    trace!("{:?} -> ({},{}), v: {}", mem_type, addr, size, value);
+                    match mem_type {
+                        MemType::WRITE => {
+                            debug_assert_eq!(
+                                uc.mem_read_as_vec(addr, size).unwrap(),
+                                uc.get_data().state.memory.read_bytes(addr, size)
+                            );
+                            uc.get_data_mut()
+                                .state
+                                .memory
+                                .write_value(addr, size, value);
+                        }
+                        MemType::READ_AFTER => {
+                            debug_assert_eq!(
+                                &(value as u32).to_be_bytes().as_slice()[(4 - size)..],
+                                uc.get_data().state.memory.read_bytes(addr, size)
+                            );
+                        }
+                        _ => {}
+                    }
+                    true
+                }
+            },
+        )?;
+
+        machine.add_code_hook(0, u32::MAX as u64, {
+            |uc, addr, size| {
+                info!("code hook, {} {}, pc {}", addr, size, uc.pc_read().unwrap());
+                uc.get_data_mut().state.steps += 1;
+            }
+        })?;
+        // machine.add_block_hook(|uc, addr, size| {
+        //     info!("block hook, {} {}", addr, size);
+        // })?;
 
         Ok(Self {
             config: conf,
@@ -75,6 +124,76 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
         )?;
         Ok(())
     }
+
+    pub fn run_until(
+        &mut self,
+        entrypoint: u64,
+        exitpoint: Option<u64>,
+        timeout: Option<u64>,
+        count: usize,
+    ) -> Result<StateChange, EmulatorError> {
+        let exitpoint = exitpoint.unwrap_or_else(|| default_exitpoint(self.core.pointer_size()));
+
+        info!("pc: {}", self.core.pc()?);
+
+        let state_before = if count.is_zero() {
+            self.save()?
+        } else {
+            self.core
+                .emu_start(entrypoint, exitpoint, timeout.unwrap_or_default(), count)?;
+            self.save()?
+        };
+
+        let readset = Rc::new(RefCell::new(BTreeSet::new()));
+        let writeset = Rc::new(RefCell::new(BTreeSet::new()));
+        let handle = self.core.add_mem_hook(
+            HookType::MEM_READ_AFTER | HookType::MEM_WRITE,
+            0,
+            u32::MAX as u64,
+            {
+                let readset = readset.clone();
+                let writeset = writeset.clone();
+                move |uc, mem_type, addr, size, value| {
+                    match mem_type {
+                        MemType::WRITE => {
+                            writeset.borrow_mut().insert((addr, size));
+                        }
+                        MemType::READ_AFTER => {
+                            readset.borrow_mut().insert((addr, size));
+                        }
+                        _ => {}
+                    }
+                    true
+                }
+            },
+        )?;
+        self.core
+            .emu_start(self.core.pc()?, exitpoint, timeout.unwrap_or_default(), 1)?;
+        self.core.remove_hook(handle);
+        let state_after = self.save()?;
+        Ok(StateChange {
+            state_after,
+            state_before,
+            step: (count + 1) as u64,
+            readset: {
+                let rs = readset.borrow();
+                rs.deref().clone()
+            },
+            writeset: {
+                let ws = writeset.borrow();
+                ws.deref().clone()
+            },
+        })
+    }
+
+    pub fn save(&self) -> Result<EmulatorState, EmulatorError> {
+        let register_vals = self.core.save_registers()?;
+        let memory = self.core.get_data().state.snapshot().memory;
+        Ok(EmulatorState {
+            regs: register_vals,
+            memories: memory,
+        })
+    }
 }
 
 pub fn default_exitpoint(point_size: u8) -> u64 {
@@ -84,4 +203,19 @@ pub fn default_exitpoint(point_size: u8) -> u64 {
         8 => 0xffffffffffffffff,
         _ => unreachable!(),
     }
+}
+
+#[derive(Serialize, Debug)]
+pub struct EmulatorState {
+    regs: RegisterState,
+    memories: MemoryState,
+}
+
+#[derive(Serialize, Debug)]
+pub struct StateChange {
+    state_before: EmulatorState,
+    state_after: EmulatorState,
+    step: u64,
+    readset: BTreeSet<(u64, usize)>,
+    writeset: BTreeSet<(u64, usize)>,
 }

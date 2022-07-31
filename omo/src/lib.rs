@@ -3,6 +3,8 @@
 //#![feature(adt_const_params)]
 #![feature(box_syntax)]
 
+extern crate core;
+
 pub mod arch;
 pub mod cc;
 pub mod config;

@@ -1,4 +1,6 @@
 use crate::engine::Engine;
+use log::Level::Debug;
+use std::collections::BTreeMap;
 
 use crate::arch::ArchT;
 use unicorn_engine::unicorn_const::uc_error;
@@ -8,6 +10,7 @@ pub trait Registers {
     fn write(&mut self, reg: impl Into<i32>, value: u64) -> Result<(), uc_error>;
     fn pc(&self) -> Result<u64, uc_error>;
     fn set_pc(&mut self, value: u64) -> Result<(), uc_error>;
+    fn save_registers(&self) -> Result<BTreeMap<i32, u64>, uc_error>;
 }
 pub trait StackRegister {
     fn sp(&self) -> Result<u64, uc_error>;
@@ -47,6 +50,16 @@ impl<'a, A: ArchT> Registers for Engine<'a, A> {
     fn set_pc(&mut self, value: u64) -> Result<(), uc_error> {
         self.write(A::PC, value)
     }
+    fn save_registers(&self) -> Result<BTreeMap<i32, u64>, uc_error> {
+        let mut reg_values = BTreeMap::default();
+        for reg in self.get_data().env().registers() {
+            let reg_v = Registers::read(self, *reg)?;
+            if reg_v != 0 {
+                reg_values.insert(*reg, reg_v);
+            }
+        }
+        Ok(reg_values)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -63,3 +76,5 @@ impl RegisterInfo {
         }
     }
 }
+
+pub type RegisterState = BTreeMap<i32, u64>;
