@@ -73,12 +73,13 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
             },
         )?;
 
-        machine.add_code_hook(0, u32::MAX as u64, {
-            |uc, addr, size| {
-                info!("code hook, {} {}, pc {}", addr, size, uc.pc_read().unwrap());
-                uc.get_data_mut().state.steps += 1;
-            }
-        })?;
+        // machine.add_code_hook(0, u32::MAX as u64, {
+        //     |uc, addr, size| {
+        //         info!("code hook, {} {}, pc {}", addr, size, uc.pc_read().unwrap());
+        //         uc.get_data_mut().state.steps += 1;
+        //     }
+        // })?;
+
         // machine.add_block_hook(|uc, addr, size| {
         //     info!("block hook, {} {}", addr, size);
         // })?;
@@ -213,9 +214,9 @@ pub struct EmulatorState {
 
 #[derive(Serialize, Debug)]
 pub struct StateChange {
-    state_before: EmulatorState,
-    state_after: EmulatorState,
-    step: u64,
-    readset: BTreeSet<(u64, usize)>,
-    writeset: BTreeSet<(u64, usize)>,
+    pub state_before: EmulatorState,
+    pub state_after: EmulatorState,
+    pub step: u64,
+    pub readset: BTreeSet<(u64, usize)>,
+    pub writeset: BTreeSet<(u64, usize)>,
 }

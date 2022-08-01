@@ -47,7 +47,7 @@ impl<T> Mach for T where T: Stack + Registers + Memory + StackRegister + ArchInf
 
 #[derive(Default, Debug, Clone)]
 pub struct MachineState {
-    pub steps: u64,
+    //pub steps: u64,
     pub memory: MemoryState,
 }
 
