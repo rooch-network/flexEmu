@@ -247,6 +247,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "029d8d0b2f198229de29dca79676f2738ff952edf3fde542eb8bf94d8c21b435"
 
 [[package]]
+name = "pkg-config"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
+
+[[package]]
 name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -465,14 +471,15 @@ checksum = "d22af068fba1eb5edcb4aea19d382b2a3deb4c8f9d475c589b6ada9e0fd493ee"
 
 [[package]]
 name = "unicorn-engine"
-version = "2.0.0-rc7"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4dffba847263d488d17b9f2ba2f3affea40960dce257ed51b726a263b3b77e6"
+checksum = "f23e61b1c16090ec75a57656f8e7337a8df1e438d4e616b99ce679ab26b8591e"
 dependencies = [
  "bitflags",
  "cc",
  "cmake",
  "libc",
+ "pkg-config",
 ]
 
 [[package]]
