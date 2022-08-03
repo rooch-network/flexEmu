@@ -14,6 +14,7 @@ You need:
 - [rust](https://rustup.rs/)
 - [cross](https://github.com/cross-rs/cross)
 - Docker: cross needs it.
+- [cmake](https://cmake.org/download/) >= 3.12
 
 ## Get Started
 

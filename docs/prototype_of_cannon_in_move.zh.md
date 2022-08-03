@@ -11,7 +11,7 @@ optimism-move 是一套基于 move 虚拟机的 layer2 的链上仲裁的原型�
 
 - 剥离 move-vm 相关代码。
 - 以及修改 vm 和 storage 交互逻辑。
-- 将 stroage 接口 mock 掉，将数据读取和写入临时保存下来。
+- 将 storage 接口 mock 掉，将数据读取和写入临时保存下来。
 
 最终的目标是能够构建 min-move-vm，并且能够将其编译成 mips 指令集的二进制代码。
 ### 执行 mips 代码
