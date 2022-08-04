@@ -3,6 +3,8 @@ use goblin::{
     container::Endian,
     elf::program_header::{PF_R, PF_W, PF_X},
 };
+use num_traits::PrimInt;
+use std::fmt::Debug;
 
 use crate::memory::PointerSizeT;
 use unicorn_engine::unicorn_const::Permission;
@@ -17,16 +19,32 @@ use unicorn_engine::unicorn_const::Permission;
 /// will be aligned to page size
 ///
 /// Returns: value aligned down to boundary
-pub fn align(value: u32, alignment: u32) -> u32 {
-    debug_assert_eq!(alignment & (alignment - 1), 0);
+pub fn align<T>(value: T, alignment: impl Into<T>) -> T
+where
+    T: PrimInt + Debug,
+{
+    let alignment = alignment.into();
+    let mask = alignment - T::one();
+    debug_assert_eq!(alignment & mask, T::zero());
     // round down to nearest alignment
-    value & (!(alignment - 1))
+    value & (!mask)
 }
 
-pub fn align_up(value: u32, alignment: u32) -> u32 {
-    debug_assert_eq!(alignment & (alignment - 1), 0);
+// pub fn align_up(value: u32, alignment: u32) -> u32 {
+//     debug_assert_eq!(alignment & (alignment - 1), 0);
+//     // round up to nearest alignment
+//     (value + alignment - 1) & (!(alignment - 1))
+// }
+
+pub fn align_up<T>(value: T, alignment: impl Into<T>) -> T
+where
+    T: PrimInt + Debug,
+{
+    let alignment = alignment.into();
+    let mask = alignment - T::one();
+    debug_assert_eq!(alignment & mask, T::zero());
     // round up to nearest alignment
-    (value + alignment - 1) & (!(alignment - 1))
+    (value + mask) & (!mask)
 }
 
 /// Translate ELF segment perms to Unicorn protection constants.

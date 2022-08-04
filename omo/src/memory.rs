@@ -90,7 +90,12 @@ impl<'a, A> Memory for Unicorn<'a, Machine<A>> {
         Ok(packer.unpack(data))
     }
     fn write(&mut self, address: u64, bytes: impl AsRef<[u8]>) -> Result<(), uc_error> {
-        self.mem_write(address, bytes.as_ref())
+        self.mem_write(address, bytes.as_ref())?;
+        self.get_data_mut()
+            .state
+            .memory
+            .write_bytes(address, bytes.as_ref());
+        Ok(())
     }
 
     fn write_ptr(

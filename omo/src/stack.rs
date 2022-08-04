@@ -81,7 +81,7 @@ impl<'a, A: ArchT> Stack for Engine<'a, A> {
         let data = s.as_ref();
         let top = self.sp()?;
         // align by pointer size
-        let top = align((top - data.len() as u64) as u32, alignment) as u64;
+        let top = align(top - data.len() as u64, alignment);
         Memory::write(self, top, data)?;
         self.set_sp(top)?;
         Ok(top)

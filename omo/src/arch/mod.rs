@@ -13,6 +13,7 @@ pub trait ArchT {
     const PC: i32;
     const SP: i32;
     fn cc(&self) -> Self::CC;
+    fn registers(&self) -> &[i32];
 }
 
 pub trait ArchInfo {

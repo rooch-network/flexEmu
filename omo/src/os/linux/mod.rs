@@ -216,7 +216,7 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         // TODO: check thread management
         log::debug!("set_tid_address({})", tidptr);
-        Ok(std::process::id() as i64)
+        Ok(42)
     }
     fn poll<'a, A: ArchT>(
         &mut self,
@@ -325,7 +325,7 @@ impl Inner {
         // otherwise, just return current brk_address
         if inp != 0 {
             let cur_brk_addr = self.brk_address;
-            let new_brk_addr = align_up(inp as u32, core.pagesize() as u32) as u64;
+            let new_brk_addr = align_up(inp, core.pagesize());
             if inp > cur_brk_addr {
                 Memory::mem_map(
                     core,
