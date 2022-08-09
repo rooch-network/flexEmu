@@ -80,14 +80,14 @@ impl Inner {
             .and_then(|v| v.get(&syscall_no));
         match call {
             None => {
-                unimplemented!("Please implement syscall {} for {:?}", syscall_no, arch);
+                unimplemented!("no such syscall {} for {:?}", syscall_no, arch);
             }
             Some(call) => match SysCalls::from_str(call.as_str()) {
                 Ok(c) => {
                     self.handle_syscall(core, c).unwrap();
                 }
                 Err(_e) => {
-                    unimplemented!("Please implement syscall {} for {:?}", syscall_no, arch);
+                    unimplemented!("syscall {} for {:?}", syscall_no, arch);
                 }
             },
         }
