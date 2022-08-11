@@ -52,12 +52,13 @@ module omo::mips {
         return hash_value::new(vector::empty<u8>())
     }
 }
-module omo::utils {
-    /// SignExt_idx(dat)
-    public fun se(dat: u64, idx: u64): u64 {
-        0
-    }
-}
+
+//module omo::utils {
+//    /// SignExt_idx(dat)
+//    public fun se(dat: u64, idx: u64): u64 {
+//        0
+//    }
+//}
 
 /// Big Endian bits representation.
 module omo::bits {
@@ -68,12 +69,23 @@ module omo::bits {
         len: u8,
     }
 
+    public fun zero(): Bits {
+        Bits {
+            data: 0,
+            len: 0
+        }
+    }
+
     public fun from_u64(v: u64, len: u8): Bits {
         assert!(len <= 64, 1000);
         Bits {
             data: v,
             len
         }
+    }
+
+    public fun len(v: &Bits): u8 {
+        v.len
     }
 
     #[test]
@@ -121,8 +133,15 @@ module omo::bits {
             {
                 let r = concat(y, x);
                 assert!(r.len == 5, 5);
-                assert!(r.data == 0x3, 3);
+                assert!(r.data == 7, 7);
             };
+            {
+                let zero = zero();
+                assert!(concat(zero, x).data == 7, 7);
+                assert!(concat(zero, x).len == x.len, 3);
+                assert!(concat(x, zero).data == 7, 7);
+                assert!(concat(x, zero).len == x.len, 3);
+            }
     }
 
 
@@ -131,18 +150,37 @@ module omo::bits {
     /// Example: {1, 0 x 3} = 1000
     public fun repeat(x: Bits, n: u8): Bits {
         assert!(n != 0, 0);
-        while (n > 1) {
-            x = concat(x, x);
-            n = n - 1
+        let half = n / 2;
+        let remain = n % 2;
+        let a = if (half > 0) {
+            let half = repeat(x, half);
+            concat(half, half)
+        } else {
+            zero()
         };
-        x
+        let b = if (remain == 0) {
+            zero()
+        } else {
+            x
+        };
+        concat(a, b)
     }
+
+    #[test]
+    fun test_repeat() {
+        // 0b0001_0010
+        let e = from_u64(0x12, 8);
+        let ee = repeat(e, 8);
+        assert!(ee.len == 64, 64);
+        assert!(ee.data == 0x1212121212121212, ee.data);
+    }
+
 
     /// (X)[B:A]
     /// Slice bits A through B (inclusive) out of X.
     /// Example: (1100110101)[4:1] = 1010
     public fun slice(x: Bits, b: u8, a: u8): Bits {
-        assert!(b >= a && b < 64, 1000);
+        assert!(b >= a && b < x.len, 1000);
         // 0b100000 - 1 = 0b11111
         let mask = (1 << (b + 1)) - 1;
         // (0b11111 >> 1) << 1 = 0b11110;
@@ -151,6 +189,25 @@ module omo::bits {
             data: (x.data & mask) >> a,
             len: b - a + 1
         }
+    }
+
+    #[test]
+    fun test_slice() {
+        // 0b0011_0101
+        let x = from_u64(0x35, 8);
+
+            {
+                let s = slice(x, 4, 1);
+                assert!(s.len == 4, 4);
+                assert!(s.data == 10, 10);
+            };
+            {
+                let s = slice(x, 7, 1);
+                assert!(s.len == 7, 7);
+                // 0b0011_010
+                assert!(s.data == 0x1a, 0x1a);
+            };
+
     }
 
     /// (X)[idx]
@@ -163,8 +220,26 @@ module omo::bits {
         (x.data >> idx) % 2 == 1
     }
 
+    #[test]
+    fun test_get_bit() {
+        // 0b1010_1010
+        let x = from_u64(0xaa, 8);
+        let i = 0;
+        while (i < 8) {
+            assert!(bit(&x, i) == (i%2!=0), ((i % 2) as u64));
+            i = i+1;
+        };
+    }
+
     public fun is_signed(x: &Bits): bool {
         bit(x, x.len - 1)
+    }
+
+    #[test]
+    fun test_is_signed() {
+        let x = repeat_bit(true, 1);
+        assert!(is_signed(&x), 1);
+        assert!(!is_signed(&repeat_bit(false, 1)), 0);
     }
 
     /// SignExt_Nb(X)
@@ -176,4 +251,14 @@ module omo::bits {
         let is_signed = is_signed(&x);
         concat(repeat_bit(is_signed, to - x.len), x)
     }
+
+    #[test]
+    fun test_se() {
+        // 0b_1001
+        let x = from_u64(9, 4);
+        let se = se(x, 32);
+        assert!(se.len == 32, (se.len as u64));
+        assert!(se.data == 0xfffffff9, se.data);
+    }
+
 }
