@@ -1,8 +1,10 @@
+/// Mips Reference impl. https://inst.eecs.berkeley.edu/~cs61c/resources/MIPS_help.html
 module omo::mips {
 
     use jellyfish_merkle_tree::hash_value::HashValue;
     use jellyfish_merkle_tree::hash_value;
     use std::vector;
+    use omo::bits;
 
 
     public fun read_memory(state_hash: HashValue, addr: u64): u64 {
@@ -38,15 +40,21 @@ module omo::mips {
 
     fun step_pc(state_hash: HashValue, pc: u64, next_pc: u64): HashValue {
         let insn = read_memory(state_hash, pc);
-        let opcode = insn >> 26; // first 6-bits
+        let insn = bits::from_u64(insn, 32);
+        let opcode = bits::slice(insn, 31, 26); // first 6-bits
+        let opcode = bits::data(&opcode);
         //let func = insn & 0b111111; // last 6-bits
         // j-type j/jal
         if (opcode == 2 || opcode == 3) {
-            //(next_pc & 0xf0000000) | (opcode);
-            let new_state_hash = step_pc(state_hash, next_pc, next_pc + 4);
             if (opcode == 3) {
                 state_hash = write_memory(state_hash, reg_to_mem_addr(REG_LR), pc + 8);
             };
+            let jump_address = bits::slice(insn, 25, 0);
+            let higher = bits::slice(bits::from_u64(pc+4, 32), 31, 28);
+            let new_pc = bits::concat(higher, bits::concat(jump_address, bits::repeat_bit(false, 2)));
+
+            let state_hash = step_pc(state_hash, next_pc, bits::data(&new_pc));
+
             return state_hash;
         };
         return hash_value::new(vector::empty<u8>())
@@ -86,6 +94,9 @@ module omo::bits {
 
     public fun len(v: &Bits): u8 {
         v.len
+    }
+    public fun data(v: &Bits): u64 {
+        v.data
     }
 
     #[test]
