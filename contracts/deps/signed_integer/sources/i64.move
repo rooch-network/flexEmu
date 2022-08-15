@@ -1,7 +1,7 @@
 module std::i64 {
+
     struct I64 has copy, drop, store, key {
-        positive: bool,
-        v: u64,
+        bits: u64,
     }
 
     /// 2**63
@@ -9,22 +9,36 @@ module std::i64 {
     /// 2**63 - 1
     const MAX_V: u64 = 0x8000000000000000 - 1;
 
+    const MASK: u64 = 0xffffffffffffffff;
+    const BIT_LEN: u8 = 64;
+
     public fun new(v: u64, positive: bool): I64 {
-        let n = I64 {
-            positive,
-            v
-        };
-        check_v(n)
+        if (v==0 || positive) {
+            assert!(v <= MAX_V, 1000);
+            I64 {
+                bits: v,
+            }
+        } else {
+            assert!(v <= MIN_V, 1000);
+            // 2'complement of v
+            I64 {
+                bits: two_complement(v)
+            }
+        }
+    }
+    public fun from_u64(v: u64): I64 {
+        new(v, true)
     }
 
-    public fun from_u64(v: u64): I64 {
-        check_v(I64 { positive: true, v })
+    public fun from_bits(bits: u64): I64 {
+        I64 {
+            bits
+        }
     }
 
     public fun zero(): I64 {
         I64 {
-            positive: true,
-            v: 0,
+            bits: 0,
         }
     }
 
@@ -36,121 +50,126 @@ module std::i64 {
         new(MIN_V, false)
     }
 
+    public fun bits(v: I64): u64 {
+        v.bits
+    }
+
     // return `-v`
     public fun negative(v: I64): I64 {
-        v.positive = !v.positive;
-        check_v(v)
+        if (v.bits == 0) {
+            return v
+        };
+
+        if (v.bits == (1<<63)) {
+            abort 1000
+        };
+        from_bits(two_complement(v.bits))
     }
 
 
     //// Equal methods
     public fun less_than(a: I64, b: I64): bool {
-        if (a.positive) {
-            if (b.positive) {
-                a.v < b.v
-            } else {
-                false
-            }
+        let a_msb = (a.bits >> (BIT_LEN - 1));
+        let b_msb = (b.bits >> (BIT_LEN - 1));
+        if (a_msb == b_msb) {
+            a.bits < b.bits
+        } else if (a_msb == 0) {
+            false
         } else {
-            if (b.positive) {
-                true
-            } else {
-                a.v > b.v
-            }
+            true
         }
     }
 
 
     public fun abs(v: I64): u64 {
-        v.v
+        if (positive(v)) {
+            v.bits
+        } else {
+            two_complement(v.bits)
+        }
     }
 
     public fun positive(v: I64): bool {
-        v.positive
+        (v.bits >> (BIT_LEN - 1)) == 0
     }
 
     public fun eq(a: I64, b: I64): bool {
-        a.positive == b.positive && a.v == b.v
+        a.bits == b.bits
     }
 
 
     public fun add(a: I64, b: I64): I64 {
-        let n = if (a.positive) {
-            if (b.positive) {
-                I64 { v: a.v + b.v, positive: true }
-            } else {
-                I64 {
-                    v: abs_sub(a.v, b.v),
-                    positive: a.v >= b.v
-                }
-            }
-        } else {
-            if (b.positive) {
-                I64 { v: abs_sub(a.v, b.v), positive: b.v >= a.v }
-            } else {
-                I64 {
-                    v: a.v + b.v,
-                    positive: false
-                }
-            }
+        let (overflow, v) = add_2c(a.bits, b.bits);
+        if (overflow) {
+            abort  10000
         };
-        check_v(n)
+        from_bits(v)
+    }
+
+    fun two_complement(v: u64): u64 {
+        (v ^ MASK) + 1
+    }
+
+    // 2-complement add, return (overflow, value)
+    fun add_2c(a: u64, b: u64): (bool, u64) {
+        let a = (a as u128);
+        let b = (b as u128);
+        let v = a + (a >> 63 << 64) + b + (b >> 63 << 64);
+        let lo = ((v & 0xffffffffffffffff) as u64);
+        let hi = ((v >> 64) as u64);
+        ((lo >> 63) != (hi & 0x1), lo)
     }
 
     public fun sub(a: I64, b: I64): I64 {
-        add(a, negative(b))
+        let (overflow, v) = add_2c(a.bits, two_complement(b.bits));
+        if (overflow) {
+            abort 10000
+        };
+        from_bits(v)
     }
 
 
     public fun mul(a: I64, b: I64): I64 {
-        check_v(
-            I64 {
-                v: a.v * b.v,
-                positive: xor(a.positive, b.positive),
-            }
-        )
+        let v = abs(a) * abs(b);
+        new(v, positive(a) == positive(b))
     }
 
     public fun div(a: I64, b: I64): I64 {
-        let div_result = a.v / b.v;
-        let n = I64 {
-            v: div_result,
-            positive: xor(a.positive, b.positive),
-        };
-        let mod_result = a.v % b.v;
-        if (mod_result != 0 && !n.positive) {
-            n.v = n.v + 1;
-        };
-        check_v(n)
+        let v = abs(a) / abs(b);
+        new(v, positive(a) == positive(b))
     }
 
-    fun abs_sub(a: u64, b: u64): u64 {
-        if (a >= b) {
-            a - b
-        } else {
-            b - a
-        }
-    }
+    #[test]
+    fun test_arith() {
+        let a = new(2, true);
+        let b= new(3, true);
 
-    fun xor(a: bool, b: bool): bool {
-        if (a) {
-            b
-        } else {
-            !b
-        }
-    }
+            {
+                assert!(add(a, b) == from_u64(5), 11);
+                assert!(add(a, negative(b)) == new(1, false), 12);
+                assert!(add(b, negative(a)) == new(1, true), 13);
+                assert!(add(negative(a), negative(b)) == new(5, false), 13);
+            };
+            {
+                assert!(sub(a, b) == new(1, false), 11);
+                assert!(sub(a, negative(b)) == new(5, true), 12);
+                assert!(sub(negative(b), a) == new(5, false), 13);
+                assert!(sub(negative(a), negative(b)) == new(1, true), 13);
+            };
 
-    fun check_v(v: I64): I64 {
-        // unify zero
-        if (v.v == 0) {
-            return zero()
-        };
-        if (v.positive) {
-            assert!(v.v <= MAX_V, 100);
-        } else {
-            assert!(v.v <= MIN_V, 100);
-        };
-        v
+            {
+                assert!(mul(a, b) == from_u64(6), 1);
+                assert!(mul(negative(a), b) == new(6, false), 2);
+                assert!(mul(a, negative(b)) == new(6, false), 3);
+                assert!(mul(negative(a), negative(b)) == new(6, true), 4);
+            };
+            {
+                assert!(div(a, b) == new(0, true), 1);
+                assert!(div(b, a) == new(1, true), 2);
+                assert!(div(negative(a), b) == new(0, true), 3);
+                assert!(div(negative(b), a) == new(1, false), 4);
+                assert!(div(negative(b), negative(a)) == new(1, true), 5);
+            };
     }
 
     #[test]
@@ -162,14 +181,14 @@ module std::i64 {
 
     #[test]
     fun test_negative() {
-        assert!(negative(I64 { positive: true, v: 1 }) == I64 { positive: false, v: 1 }, 100);
-        assert!(negative(I64 { positive: false, v: 1 }) == I64 { positive: true, v: 1 }, 100);
+        assert!(negative(from_u64(1)) == new(1, false), 100);
+        //assert!(from_u64(1) == negative(new(1, false)), 200);
     }
 
     #[test]
     #[expected_failure]
     fun test_negative_err() {
-        assert!(negative(I64 { positive: true, v: 1 }) == I64 { positive: true, v: 1 }, 100);
+        assert!(negative(from_u64(1)) == from_u64(1), 100);
     }
 
 
@@ -178,7 +197,7 @@ module std::i64 {
         assert!(add(new(1, true), new(MAX_V - 1, true)) == max(), 100);
         assert!(add(new(1, false), new(1, true)) == zero(), 100);
         assert!(add(new(1, false), new(MIN_V - 1, false)) == min(), 100);
-        assert!(add(new(1, true), new(2, false)) == I64 { positive: false, v: 1 }, 100);
+        assert!(add(new(1, true), new(2, false)) == new(1, false), 100);
     }
 
     #[test]
@@ -196,24 +215,15 @@ module std::i64 {
 
     #[test]
     fun test_check_v_ok() {
-        check_v(I64 { positive: false, v: 1 });
-        check_v(I64 { positive: false, v: MIN_V - 1 });
-        check_v(I64 { positive: false, v: MIN_V });
-
-        check_v(I64 { positive: true, v: 0 });
-        check_v(I64 { positive: true, v: MAX_V - 1 });
-        check_v(I64 { positive: true, v: MAX_V });
+        new(MAX_V, true);
+        new(MIN_V, false);
+        assert!(new(0, true) == new(0, false), 1000);
+        assert!(negative(new(MAX_V, true)) == new(MIN_V - 1, false), 1001);
     }
 
     #[test]
     #[expected_failure]
-    fun test_check_v_err() {
-        check_v(I64 { positive: false, v: MIN_V + 1 });
-    }
-
-    #[test]
-    #[expected_failure]
-    fun test_check_v_err_2() {
-        check_v(I64 { positive: true, v: MAX_V + 1 });
+    fun test_negative_of_min_v_err() {
+        negative(new(MIN_V, false));
     }
 }
