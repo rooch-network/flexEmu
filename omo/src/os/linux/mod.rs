@@ -12,11 +12,7 @@ use crate::{
     registers::{Registers, StackRegister},
     utils::{align_up, Packer},
 };
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    io::{stderr, stdout, Write},
-};
+use std::{cell::RefCell, collections::HashMap, io::{stderr, stdout, Write}, process};
 
 use std::{rc::Rc, str::FromStr};
 use unicorn_engine::{
@@ -214,9 +210,9 @@ impl Inner {
         _core: &mut Engine<'a, A>,
         tidptr: u64,
     ) -> Result<i64, uc_error> {
-        // TODO: check thread management
+        // TODO: implement thread management
         log::debug!("set_tid_address({})", tidptr);
-        Ok(42)
+        Ok(process::id() as i64)
     }
     fn poll<'a, A: ArchT>(
         &mut self,
