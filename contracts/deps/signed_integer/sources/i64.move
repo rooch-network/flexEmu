@@ -1,5 +1,8 @@
 module std::i64 {
 
+    use std::bits::Bits;
+    use std::bits;
+
     struct I64 has copy, drop, store, key {
         bits: u64,
     }
@@ -30,10 +33,13 @@ module std::i64 {
         new(v, true)
     }
 
-    public fun from_bits(bits: u64): I64 {
+    public fun from_bits(bits: Bits): I64 {
         I64 {
-            bits
+            bits: bits::data(&bits::se(bits, 64))
         }
+    }
+    public fun to_bits(v: I64): Bits {
+        bits::from_u64(v.bits, 64)
     }
 
     public fun zero(): I64 {
@@ -63,7 +69,10 @@ module std::i64 {
         if (v.bits == (1<<63)) {
             abort 1000
         };
-        from_bits(two_complement(v.bits))
+        I64 {
+            bits: two_complement(v.bits)
+        }
+
     }
 
 
@@ -103,7 +112,8 @@ module std::i64 {
         if (overflow) {
             abort  10000
         };
-        from_bits(v)
+        I64 {bits: v}
+
     }
 
     fun two_complement(v: u64): u64 {
@@ -125,7 +135,7 @@ module std::i64 {
         if (overflow) {
             abort 10000
         };
-        from_bits(v)
+        I64 {bits: v}
     }
 
 
@@ -134,8 +144,13 @@ module std::i64 {
         new(v, positive(a) == positive(b))
     }
 
+    // FIXME: wrong
     public fun div(a: I64, b: I64): I64 {
         let v = abs(a) / abs(b);
+        new(v, positive(a) == positive(b))
+    }
+    public fun rem(a: I64, b: I64): I64 {
+        let v = abs(a) % abs(b);
         new(v, positive(a) == positive(b))
     }
 
