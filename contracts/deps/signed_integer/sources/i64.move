@@ -241,4 +241,14 @@ module std::i64 {
     fun test_negative_of_min_v_err() {
         negative(new(MIN_V, false));
     }
+
+    #[test]
+    fun test_add_and_bits() {
+        // 0b1111_1111_0101_0110
+        let a = new(0xaa, false);
+        // 0b0000_0000_1010_1010
+        let b = new(0xaa, true);
+        assert!(add(a, b) == zero(), 0);
+        assert!(((a.bits as u128) + (b.bits as u128)) & 0xffffffff == 0, 1);
+    }
 }
