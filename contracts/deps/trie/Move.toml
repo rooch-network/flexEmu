@@ -1,0 +1,13 @@
+[package]
+name = "trie"
+version = "0.1.0"
+
+[dependencies]
+MoveStdlib = { git = "https://github.com/move-language/move.git", subdir = "language/move-stdlib", rev = "main" }
+MoveTableExtension = {git = "https://github.com/move-language/move.git", subdir = "language/extensions/move-table-extension", rev = "main"}
+[addresses]
+std =  "0x1"
+eth = "_"
+
+[dev-addresses]
+eth = "0x2"
