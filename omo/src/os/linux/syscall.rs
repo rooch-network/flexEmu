@@ -43,6 +43,7 @@ pub enum SysCalls {
     SIGALTSTACK,
     BRK,
     EXIT_GROUP,
+    GETRANDOM,
 }
 
 impl SysCalls {
@@ -57,6 +58,7 @@ impl SysCalls {
             SysCalls::SIGALTSTACK => 2,
             SysCalls::BRK => 1,
             SysCalls::EXIT_GROUP => 1,
+            SysCalls::GETRANDOM => 1,
             _ => todo!(),
         }
     }

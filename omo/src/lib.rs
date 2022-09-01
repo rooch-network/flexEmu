@@ -17,4 +17,6 @@ pub mod os;
 pub mod registers;
 pub mod stack;
 pub mod utils;
+mod rand;
+
 pub const PAGE_SIZE: u32 = 0x1000;
