@@ -220,7 +220,7 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         // TODO: implement thread management
         log::debug!("set_tid_address({})", tidptr);
-        Ok(process::id() as i64)
+        Ok(42)
     }
     fn poll<'a, A: ArchT>(
         &mut self,
