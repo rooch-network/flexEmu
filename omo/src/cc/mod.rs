@@ -14,7 +14,7 @@ pub trait CallingConvention {
     // Read a value of native size from the specified argument slot.
     //
     // Note that argument slots and argument indexes are not the same. Though they often correlate
-    // to each other, some implementations might use more than one slot to represent a sigle argument.
+    // to each other, some implementations might use more than one slot to represent a single argument.
     //
     // Args:
     // slot: argument slot to access

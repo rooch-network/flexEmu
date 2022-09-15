@@ -12,17 +12,15 @@ use crate::{
     registers::{Registers, StackRegister},
     utils::{align_up, Packer},
 };
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    io::{stderr, stdout, Write},
-};
+use std::{cell::RefCell, collections::HashMap, io::{stderr, stdout, Write}, process};
 
 use std::{rc::Rc, str::FromStr};
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
+use crate::rand::{RAND_SOURCE, RAND_SOURCE_LEN};
+
 pub mod syscall;
 
 #[derive(Debug, Default)]
@@ -80,14 +78,14 @@ impl Inner {
             .and_then(|v| v.get(&syscall_no));
         match call {
             None => {
-                unimplemented!("Please implement syscall {} for {:?}", syscall_no, arch);
+                unimplemented!("no such syscall {} for {:?}", syscall_no, arch);
             }
             Some(call) => match SysCalls::from_str(call.as_str()) {
                 Ok(c) => {
                     self.handle_syscall(core, c).unwrap();
                 }
                 Err(_e) => {
-                    unimplemented!("Please implement syscall {} for {:?}", syscall_no, arch);
+                    unimplemented!("syscall {} for {:?}", syscall_no, arch);
                 }
             },
         }
@@ -149,6 +147,12 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.exit_group(core, p0)?
             }
+            SysCalls::GETRANDOM => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.get_random(core, p0, p1)?
+            }
+
             _ => {
                 panic!("please handle syscall: {:?}", syscall);
             }
@@ -214,7 +218,7 @@ impl Inner {
         _core: &mut Engine<'a, A>,
         tidptr: u64,
     ) -> Result<i64, uc_error> {
-        // TODO: check thread management
+        // TODO: implement thread management
         log::debug!("set_tid_address({})", tidptr);
         Ok(42)
     }
@@ -381,6 +385,32 @@ impl Inner {
         core.emu_stop()?;
         Ok(0)
     }
+    fn get_random<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        buf: u64,
+        buf_len: u64,
+    ) -> Result<i64, uc_error> {
+
+        let mut left = buf_len;
+        while left > 0 {
+            let mut n = RAND_SOURCE_LEN;
+            if left < RAND_SOURCE_LEN {
+                n = left;
+            }
+            log::debug!("get_random({}) content: {:x?}", n, RAND_SOURCE[0..n]);
+            let ret = match  Memory::write(core, buf, RAND_SOURCE[0..n]) {
+                Err(_e) => {
+                    return Ok(-1);
+                }
+                _ => {}
+            };
+            left -= n;
+        }
+
+        Ok(0)
+    }
+
 }
 
 const EBADF: u64 = 9;
