@@ -137,7 +137,7 @@ module trie::rlp {
     }
 
 
-    fun unarrayify_integer(
+    public fun unarrayify_integer(
         data: &vector<u8>,
         offset: u64,
         length: u8

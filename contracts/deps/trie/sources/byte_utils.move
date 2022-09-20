@@ -22,6 +22,33 @@ module trie::byte_utils {
 
         result
     }
+
+    public fun from_nibble(a: u8, b: u8): u8 {
+        (a << 4) + b
+    }
+
+    public fun from_nibbles(nibbles: &vector<u8>): vector<u8> {
+        assert!(length(nibbles) %2 == 0, 1000);
+        let ret_len = length(nibbles) / 2;
+        let ret_v = vector::empty<u8>();
+        let i = 0;
+        while (i < ret_len) {
+            let a = *vector::borrow(nibbles, i * 2);
+            let b = *vector::borrow(nibbles, i*2+1);
+            vector::push_back(&mut ret_v, (a << 4) + b);
+            i = i + 1;
+        };
+        ret_v
+    }
+
+    public fun slice_to_end(data: &vector<u8>, from: u64): vector<u8> {
+        // short cut for slice whole range
+        if (from == 0) {
+            return *data
+        };
+        slice(data, from, length(data))
+    }
+
     public fun slice(
         data: &vector<u8>,
         start: u64,
