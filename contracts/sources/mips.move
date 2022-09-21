@@ -1,12 +1,11 @@
 /// Mips Reference impl. https://inst.eecs.berkeley.edu/~cs61c/resources/MIPS_help.html
 module omo::mips {
-
-    use jellyfish_merkle_tree::hash_value::HashValue;
-    use jellyfish_merkle_tree::hash_value;
     use std::vector;
     use std::bits;
     use std::bits::{Bits, se, data, left_shift, right_shift, slice, len};
     use std::i64;
+    use trie::hash_value::HashValue;
+    use trie::hash_value;
 
     public fun read_memory(state_hash: HashValue, addr: u64): u64 {
         0
