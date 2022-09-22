@@ -3,6 +3,7 @@ module trie::rlp_encoder {
     use StarcoinFramework::Option;
     use trie::rlp;
     use trie::rlp::encode_integer_in_big_endian;
+    use trie::byte_utils::{slice, slice_to_end};
 
     struct Encoder has store, copy {
         buffer: vector<u8>,
@@ -70,9 +71,9 @@ module trie::rlp_encoder {
     }
 
     fun note_appended(encoder: &mut Encoder, inserted_items: u64) {
-//        if (Vector::is_empty(&encoder.unfinished_list)) {
-//            return
-//        };
+       if (Vector::is_empty(&encoder.unfinished_list)) {
+           return
+       };
         assert!(!Vector::is_empty(&encoder.unfinished_list), 1000);
         let current_list = Vector::pop_back(&mut encoder.unfinished_list);
 
@@ -90,12 +91,12 @@ module trie::rlp_encoder {
             if (len < 56) {
                 *Vector::borrow_mut(&mut encoder.buffer, current_list.position - 1) = (len as u8) + 192;
             } else {
-                let output = Vector::empty<u8>();
+                let output = slice(&encoder.buffer, 0, current_list.position);
                 let length_BE = encode_integer_in_big_endian(len);
                 let length_BE_len = Vector::length(&length_BE);
-                Vector::push_back<u8>(&mut output, (length_BE_len as u8) + 247u8);
+                *Vector::borrow_mut(&mut output, current_list.position - 1) = (length_BE_len as u8) + 247u8;
                 Vector::append<u8>(&mut output, length_BE);
-                Vector::append<u8>(&mut output, encoder.buffer);
+                Vector::append<u8>(&mut output, slice_to_end(&encoder.buffer, current_list.position));
                 encoder.buffer = output;
             }
         } else {
@@ -105,5 +106,25 @@ module trie::rlp_encoder {
     }
     public fun encode_value(value: &vector<u8>): vector<u8> {
         rlp::encode(value)
+    }
+
+    #[test]
+    fun test_encoding() {
+        {
+            let encoder = new();
+            append_empty_data(&mut encoder);
+            let encoded_data = out(encoder);
+            assert!(encoded_data == vector[0x80], 0x80);
+        };
+        {
+            let data = x"f84d0589010efbef67941f79b2a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+            let encoder = new_list(4);
+            append(&mut encoder, x"05");
+            append(&mut encoder,x"010efbef67941f79b2");
+            append(&mut encoder,x"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
+            append(&mut encoder,x"c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
+            let encoded = out(encoder);
+            assert!(data == encoded, 1000);
+        };
     }
 }

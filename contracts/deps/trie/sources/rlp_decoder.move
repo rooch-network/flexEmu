@@ -2,6 +2,8 @@ module trie::rlp_decoder {
     use StarcoinFramework::Vector;
     use trie::rlp::unarrayify_integer;
     use trie::byte_utils::slice;
+    #[test_only]
+    use StarcoinFramework::Vector::length;
 
 
     struct Rlp has copy, drop {
@@ -104,5 +106,19 @@ module trie::rlp_decoder {
     fun decode_value(bytes: &vector<u8>): vector<u8> {
         let info  =payload_info(bytes, 0);
         slice(bytes, info.header_len, info.header_len + info.value_len)
+    }
+
+    #[test]
+    fun test_decoding() {
+        {
+            let data = x"f84d0589010efbef67941f79b2a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+            let rlp = new(data);
+            let elems = as_list(&rlp);
+            assert!(length(&elems) == 4, 4);
+            assert!(as_val(&Vector::pop_back(&mut elems)) ==  x"c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470", 1001);
+            assert!(as_val(&Vector::pop_back(&mut elems)) == x"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", 1002);
+            assert!(as_val(&Vector::pop_back(&mut elems)) == x"010efbef67941f79b2", 1003);
+            assert!(as_val(&Vector::pop_back(&mut elems)) == x"05", 1004);
+        };
     }
 }
