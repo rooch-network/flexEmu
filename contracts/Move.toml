@@ -4,15 +4,15 @@ version = "0.0.0"
 
 [dependencies]
 signed_integer = {local = "./deps/signed_integer"}
-MoveStdlib = {git = "https://github.com/move-language/move.git", subdir = "language/move-stdlib", rev = "main"}
-MoveTableExtension = {git = "https://github.com/move-language/move.git", subdir = "language/extensions/move-table-extension", rev = "main"}
+MoveStdlib = { git = "https://github.com/starcoinorg/move.git", subdir = "language/move-stdlib", rev = "dev" }
+MoveTableExtension = {git = "https://github.com/starcoinorg/move.git", subdir = "language/extensions/move-table-extension", rev = "dev"}
 trie = {local = "./deps/trie"}
 #StarcoinFramework = {git = "https://github.com/starcoinorg/starcoin-framework.git", rev = "table_extension"}
 #starcoin-framework-commons = {git = "https://github.com/starcoinorg/starcoin-framework-commons.git", rev = "e7f538175a5f50a97207692569b6631a87ee08cc"}
 [addresses]
 omo = "_"
-std = "0x1"
-extensions = "0x1"
+Std = "0x1"
+Extensions = "0x1"
 
 [dev-addresses]
 omo = "0x4"

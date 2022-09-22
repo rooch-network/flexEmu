@@ -1,7 +1,7 @@
-module std::i64 {
+module Std::i64 {
 
-    use std::bits::Bits;
-    use std::bits;
+    use Std::bits::Bits;
+    use Std::bits;
 
     struct I64 has copy, drop, store, key {
         bits: u64,

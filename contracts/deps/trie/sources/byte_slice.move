@@ -1,6 +1,6 @@
 /// slice module for vector
 module trie::byte_slice {
-    use std::vector;
+    use Std::Vector;
     public fun slice<E>(
         origin: &vector<E>,
         from: u64,
@@ -11,10 +11,10 @@ module trie::byte_slice {
         (origin, from + start, from + end)
     }
     public fun to_bytes<E: copy>(origin: &vector<E>, from: u64,to: u64): vector<E> {
-        let ret = vector::empty<E>();
+        let ret = Vector::empty<E>();
         let i = from;
         while (i < to) {
-            vector::push_back(&mut ret, *vector::borrow(origin, i));
+            Vector::push_back(&mut ret, *Vector::borrow(origin, i));
             i=i+1;
         };
         ret

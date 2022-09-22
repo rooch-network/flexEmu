@@ -1,5 +1,5 @@
 module trie::hash_value {
-    use std::vector;
+    use Std::Vector;
     use trie::byte_utils;
 
     struct HashValue has store, copy, drop {
@@ -8,7 +8,7 @@ module trie::hash_value {
     }
 
     public fun new(value: vector<u8>): HashValue {
-        assert!(vector::length(&value) == 32, 1);
+        assert!(Vector::length(&value) == 32, 1);
         HashValue {value}
     }
     public fun bytes(hash: &HashValue): &vector<u8> {

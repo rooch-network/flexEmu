@@ -1,6 +1,6 @@
 /// Mips Reference impl. https://inst.eecs.berkeley.edu/~cs61c/resources/MIPS_help.html
 module omo::mips {
-    use std::vector;
+    use Std::Vector::{empty};
     use std::bits;
     use std::bits::{Bits, se, data, left_shift, right_shift, slice, len};
     use std::i64;
@@ -24,15 +24,15 @@ module omo::mips {
     }
 
     public fun write_reg(state_hash: HashValue, reg_id: u64, v: u64): HashValue {
-        hash_value::new(vector::empty<u8>())
+        hash_value::new(empty<u8>())
     }
 
     public fun write_reg_bits(state_hash: HashValue, reg_id: u64, bits: Bits): HashValue {
-        hash_value::new(vector::empty<u8>())
+        hash_value::new(empty<u8>())
     }
 
     public fun write_memory(state_hash: HashValue, addr: u64, value: u64): HashValue {
-        hash_value::new(vector::empty<u8>())
+        hash_value::new(empty<u8>())
     }
 
     const REG_OFFSET: u64 = 0xc0000000;
@@ -117,7 +117,7 @@ module omo::mips {
             } else if (funct == 12) {
                 // syscall
                 // TODO: handle syscall
-                hash_value::new(vector::empty<u8>())
+                hash_value::new(empty<u8>())
             } else if (funct == 16) {
                 // mfhi
                 let val = read_reg_bits(state_hash, REG_HI);
@@ -371,7 +371,7 @@ module omo::mips {
 
             return state_hash
         };
-        return hash_value::new(vector::empty<u8>())
+        return hash_value::new(empty<u8>())
     }
     fun addi(state_hash: HashValue, store_reg: u64, a: Bits, b: Bits): HashValue {
         let val = i64::add(

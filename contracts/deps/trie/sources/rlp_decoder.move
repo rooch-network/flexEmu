@@ -1,5 +1,5 @@
 module trie::rlp_decoder {
-    use std::vector;
+    use Std::Vector;
     use trie::rlp::unarrayify_integer;
     use trie::byte_utils::slice;
 
@@ -26,13 +26,13 @@ module trie::rlp_decoder {
     }
     public fun as_list(rlp: &Rlp): vector<Rlp> {
         assert!(is_list(rlp), RlpExpectedToBeList);
-        let rets = vector::empty();
+        let rets = Vector::empty();
         let list_info = payload_info(&rlp.bytes, 0);
         let i = list_info.header_len;
-        while (i < vector::length(&rlp.bytes)) {
+        while (i < Vector::length(&rlp.bytes)) {
             let info = payload_info(&rlp.bytes, i);
             let to_consume = info.header_len + info.value_len;
-            vector::push_back(&mut rets, new(slice(&rlp.bytes, i, i + to_consume)));
+            Vector::push_back(&mut rets, new(slice(&rlp.bytes, i, i + to_consume)));
             i = i + to_consume;
         };
         rets
@@ -69,7 +69,7 @@ module trie::rlp_decoder {
 
     /// use (vector, offset) to emulate slice
     public fun payload_info(header_bytes: &vector<u8>,offset: u64): PayloadInfo {
-        let first_byte = *vector::borrow(header_bytes, offset + 0);
+        let first_byte = *Vector::borrow(header_bytes, offset + 0);
         if (first_byte < 128) {
             PayloadInfo {header_len: 0, value_len: 1}
         } else if ( first_byte < 56 + 128) {
@@ -89,16 +89,16 @@ module trie::rlp_decoder {
 
 
     public fun is_null(rlp: &Rlp): bool {
-        vector::is_empty(&rlp.bytes)
+        Vector::is_empty(&rlp.bytes)
     }
     public fun is_empty(rlp: &Rlp): bool {
-        !is_null(rlp) && ((*vector::borrow(&rlp.bytes, 0) == 192) || (*vector::borrow(&rlp.bytes, 0) == 128))
+        !is_null(rlp) && ((*Vector::borrow(&rlp.bytes, 0) == 192) || (*Vector::borrow(&rlp.bytes, 0) == 128))
     }
     public fun is_list(rlp: &Rlp): bool {
-        !is_null(rlp) && (*vector::borrow(&rlp.bytes, 0) >= 192)
+        !is_null(rlp) && (*Vector::borrow(&rlp.bytes, 0) >= 192)
     }
     public fun is_data(rlp: &Rlp): bool {
-        !is_null(rlp) && (*vector::borrow(&rlp.bytes, 0) < 192)
+        !is_null(rlp) && (*Vector::borrow(&rlp.bytes, 0) < 192)
     }
 
     fun decode_value(bytes: &vector<u8>): vector<u8> {

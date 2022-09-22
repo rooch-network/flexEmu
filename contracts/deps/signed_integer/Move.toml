@@ -3,7 +3,7 @@ name = "signed_integer"
 version = "0.1.0"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/move-language/move.git", subdir = "language/move-stdlib", rev = "main" }
+MoveStdlib = { git = "https://github.com/starcoinorg/move.git", subdir = "language/move-stdlib", rev = "dev" }
 
-[addresses]
-std =  "0x1"
+[dev-addresses]
+Std =  "0x1"
