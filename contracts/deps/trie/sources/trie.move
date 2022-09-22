@@ -379,12 +379,29 @@ module trie::trie {
     }
 
 
-    struct Trie {
+    struct TrieDB has store {
         /// hash_of_value -> value
         data: Table<HashValue, vector<u8>>,
     }
 
-    public fun update(trie: &mut Trie, key: vector<u8>, value: vector<u8>, root: HashValue): HashValue {
+    /// create a new tridb
+    public fun new(): TrieDB {
+        TrieDB {
+            data: table::new()
+        }
+    }
+
+    /// Add encoded node data to trie db.
+    /// no matter the length of it, always hash and save it,
+    /// and return the hash
+    public fun add_raw_node(trie: &mut TrieDB, encoded_node_data: vector<u8>): HashValue {
+        let hash = hash_value::new(keccak256(encoded_node_data));
+        table::add(&mut trie.data, hash, encoded_node_data);
+        hash
+    }
+
+    /// Add/update `key`/`value` pair to a trie with `root` based on an existed triedb.
+    public fun update(trie: &mut TrieDB, root: HashValue, key: vector<u8>, value: vector<u8>): HashValue {
         // Special case when inserting the very first node.
         if (hash_value::bytes(&root) == &KECCAK256_RLP_NULL_BYTES) {
             return get_single_node_root_hash(trie, key, value)
@@ -394,7 +411,7 @@ module trie::trie {
         new_root
     }
 
-    public fun get(trie: &Trie, root: HashValue, key: &vector<u8>): Option<vector<u8>> {
+    public fun get(trie: &TrieDB, root: HashValue, key: &vector<u8>): Option<vector<u8>> {
         let nibble_path = byte_utils::to_nibbles(key);
         let (_, path_remainder, path_value) = walk_node_path(trie, root, &nibble_path);
         let exists = (length(&path_remainder) == 0);
@@ -405,13 +422,13 @@ module trie::trie {
         path_value
     }
 
-    fun walk_node_path(trie: &Trie, root: HashValue, key: &vector<u8>): (vector<Node>, vector<u8>, Option<vector<u8>>) {
+    fun walk_node_path(trie: &TrieDB, root: HashValue, key: &vector<u8>): (vector<Node>, vector<u8>, Option<vector<u8>>) {
         let nibble_path = byte_utils::to_nibbles(key);
         walk_node_path_inner(trie, node_id_from_hash(root), &nibble_path, 0, vector::empty())
     }
 
 
-    fun walk_node_path_inner(trie: &Trie, node_id: ChildReference, path_in_nibble: &vector<u8>, path_index: u64, proof: vector<Node>): (vector<Node>, vector<u8>, Option<vector<u8>>) {
+    fun walk_node_path_inner(trie: &TrieDB, node_id: ChildReference, path_in_nibble: &vector<u8>, path_index: u64, proof: vector<Node>): (vector<Node>, vector<u8>, Option<vector<u8>>) {
         let current_node = get_trie_node(trie, node_id);
 
         vector::push_back(&mut proof, current_node);
@@ -482,7 +499,7 @@ module trie::trie {
     /// @param `key` Full original key.
     /// @param `value` Value to insert at the given key.
     /// @return Root hash for the updated trie.
-    fun insert_with_walk_path(trie: &mut Trie, walk_path: vector<Node>, key_remainer: vector<u8>, key: vector<u8>, value: vector<u8>): HashValue {
+    fun insert_with_walk_path(trie: &mut TrieDB, walk_path: vector<Node>, key_remainer: vector<u8>, key: vector<u8>, value: vector<u8>): HashValue {
         let last_node = vector::pop_back(&mut walk_path);
         let last_node_type = last_node.ty;
 
@@ -660,7 +677,7 @@ module trie::trie {
         }
     }
 
-    fun save_node(trie: &mut Trie, node: Node): ChildReference {
+    fun save_node(trie: &mut TrieDB, node: Node): ChildReference {
         let encoded_node_data = rlp_encode(&node);
         if (length(&encoded_node_data) < (HASH_LENGTH as u64)) {
             ChildReference {
@@ -674,7 +691,7 @@ module trie::trie {
         }
     }
 
-    fun get_trie_node(trie: &Trie, node_id: ChildReference): Node {
+    fun get_trie_node(trie: &TrieDB, node_id: ChildReference): Node {
         let node_data = if (node_id.inline) {
             assert!(vector::length(&node_id.data) < 32, 32);
             node_id.data
@@ -693,7 +710,7 @@ module trie::trie {
     /// @param _key Key for the single node.
     /// @param _value Value for the single node.
     /// @return _updatedRoot Hash of the trie.
-    fun get_single_node_root_hash(trie: &mut Trie, key: vector<u8>, value: vector<u8>): HashValue {
+    fun get_single_node_root_hash(trie: &mut TrieDB, key: vector<u8>, value: vector<u8>): HashValue {
         let dat = make_leaf_node(byte_utils::to_nibbles(&key), value);
         let dat = rlp_encode(&dat);
         let ret = keccak256(dat);
