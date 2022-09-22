@@ -45,7 +45,7 @@ module std::bits {
             data: if (!b) {
                 0
             } else {
-                (1 << n) - 1
+                ((1u128 << n - 1) as u64)
             }
         }
     }
