@@ -1,7 +1,7 @@
-module Std::i64 {
+module signed_integer::i64 {
 
-    use Std::bits::Bits;
-    use Std::bits;
+    use signed_integer::bits::Bits;
+    use signed_integer::bits;
 
     struct I64 has copy, drop, store, key {
         bits: u64,

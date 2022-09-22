@@ -1,6 +1,6 @@
 module trie::byte_utils {
-    use Std::Vector;
-    use Std::Vector::length;
+    use StarcoinFramework::Vector;
+    use StarcoinFramework::Vector::length;
 
 
     public fun to_nibble(b: u8): (u8, u8) {

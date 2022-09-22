@@ -1,5 +1,5 @@
 module trie::hash_value {
-    use Std::Vector;
+    use StarcoinFramework::Vector;
     use trie::byte_utils;
 
     struct HashValue has store, copy, drop {

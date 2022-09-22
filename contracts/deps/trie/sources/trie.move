@@ -1,16 +1,16 @@
 module trie::trie {
-    use Extensions::Table::Table;
-    use Std::Hash::sha3_256 as keccak256;
+    use StarcoinFramework::Table::Table;
+    use StarcoinFramework::Hash::keccak_256 as keccak256;
     use trie::byte_utils;
-    use Extensions::Table;
+    use StarcoinFramework::Table;
     use trie::hash_value::{HashValue};
     use trie::hash_value;
     use trie::byte_utils::{slice, slice_to_end, get_shared_length, to_nibbles};
-    use Std::Vector::length;
-    use Std::Option::Option;
-    use Std::Option;
-    use Std::Errors;
-    use Std::Vector;
+    use StarcoinFramework::Vector::length;
+    use StarcoinFramework::Option::Option;
+    use StarcoinFramework::Option;
+    use StarcoinFramework::Errors;
+    use StarcoinFramework::Vector;
     use trie::rlp_decoder;
     use trie::rlp_encoder;
     use trie::rlp_decoder::Rlp;

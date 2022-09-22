@@ -1,5 +1,5 @@
 module trie::rlp_decoder {
-    use Std::Vector;
+    use StarcoinFramework::Vector;
     use trie::rlp::unarrayify_integer;
     use trie::byte_utils::slice;
 

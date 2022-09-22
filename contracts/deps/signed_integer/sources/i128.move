@@ -1,4 +1,4 @@
-module Std::i128 {
+module signed_integer::i128 {
     struct I128 has copy, drop, store, key {
         positive: bool,
         v: u128,

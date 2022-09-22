@@ -1,9 +1,9 @@
 /// Mips Reference impl. https://inst.eecs.berkeley.edu/~cs61c/resources/MIPS_help.html
 module omo::mips {
-    use Std::Vector::{empty};
-    use std::bits;
-    use std::bits::{Bits, se, data, left_shift, right_shift, slice, len};
-    use std::i64;
+    use StarcoinFramework::Vector::{empty};
+    use signed_integer::bits;
+    use signed_integer::bits::{Bits, se, data, left_shift, right_shift, slice, len};
+    use signed_integer::i64;
     use trie::hash_value::HashValue;
     use trie::hash_value;
 

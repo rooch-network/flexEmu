@@ -1,6 +1,6 @@
 /// slice module for vector
 module trie::byte_slice {
-    use Std::Vector;
+    use StarcoinFramework::Vector;
     public fun slice<E>(
         origin: &vector<E>,
         from: u64,

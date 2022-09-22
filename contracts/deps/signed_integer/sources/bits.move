@@ -1,5 +1,5 @@
 /// Big Endian bits representation.
-module Std::bits {
+module signed_integer::bits {
 
     const MAX_LEN: u8 = 64;
     /// 0x0000_0000_0000_0000

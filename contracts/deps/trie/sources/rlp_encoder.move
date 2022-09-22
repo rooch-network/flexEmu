@@ -1,6 +1,6 @@
 module trie::rlp_encoder {
-    use Std::Vector;
-    use Std::Option;
+    use StarcoinFramework::Vector;
+    use StarcoinFramework::Option;
     use trie::rlp;
     use trie::rlp::encode_integer_in_big_endian;
 

@@ -1,7 +1,7 @@
 module trie::rlp {
-    use Std::Vector;
+    use StarcoinFramework::Vector;
     use trie::byte_utils;
-    use Std::BCS;
+    use StarcoinFramework::BCS;
 
     const INVALID_RLP_DATA: u64 = 100;
     const DATA_TOO_SHORT: u64 = 101;
