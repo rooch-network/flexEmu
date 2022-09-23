@@ -1,20 +1,22 @@
 module trie::trie {
+    use StarcoinFramework::Table;
     use StarcoinFramework::Table::Table;
     use StarcoinFramework::Hash::keccak_256 as keccak256;
-    use trie::byte_utils;
-    use StarcoinFramework::Table;
-    use trie::hash_value::{HashValue};
-    use trie::hash_value;
-    use trie::byte_utils::{slice, slice_to_end, get_shared_length, to_nibbles};
+    use StarcoinFramework::Vector;
     use StarcoinFramework::Vector::length;
     use StarcoinFramework::Option::Option;
     use StarcoinFramework::Option;
     use StarcoinFramework::Errors;
-    use StarcoinFramework::Vector;
+
+    use trie::byte_utils;
+    use trie::hash_value::{HashValue};
+    use trie::hash_value;
+    use trie::byte_utils::{slice, slice_to_end, get_shared_length, to_nibbles};
     use trie::rlp;
     use trie::rlp_stream;
     use trie::rlp::Rlp;
     use trie::byte_utils::{from_nibbles};
+
     //use StarcoinFramework::Hash::keccak;
     const HASH_LENGTH: u8 = 32;
 
@@ -208,8 +210,10 @@ module trie::trie {
             abort Invalid_Node_Type
         }
     }
-
+    const WrongNodeLen: u64 = 200;
     public fun from_rlp_elems(elems: &vector<Rlp>): Node {
+        let elem_len = length(elems);
+        assert!(elem_len == 2 || elem_len == 17, Errors::invalid_argument(WrongNodeLen));
         if (length(elems) == 2) {
             let (leaf, partial_path) = decode_to_partial_path(&rlp::as_val(Vector::borrow(elems, 0)));
             if (leaf) {
@@ -217,7 +221,7 @@ module trie::trie {
             } else {
                 make_extension_node(partial_path, decode_child_reference(Vector::borrow(elems, 1)))
             }
-        } else if (length(elems) == 17) {
+        } else {
             let branches = Vector::empty();
             let i = 0;
             while (i < 16) {
@@ -226,10 +230,9 @@ module trie::trie {
                 i = i + 1;
             };
             make_branch_node(branches, decode_optional_value(Vector::borrow(elems, 16)))
-        } else {
-            abort 10000
         }
     }
+
 
     public fun rlp_decode(node_data: &vector<u8>): Node {
         let rlp = rlp::new(*node_data);
@@ -362,8 +365,10 @@ module trie::trie {
         from_nibbles(&encoded)
     }
 
+    const WrongNodeKeyPrefix: u64 = 300;
     /// decode partial path
     /// return: (is_leaf, partial_path)
+
     public fun decode_to_partial_path(encoded: &vector<u8>): (bool, vector<u8>) {
         let encoded_path = byte_utils::to_nibbles(encoded);
         let prefix = *Vector::borrow(&encoded_path, 0);
@@ -372,14 +377,14 @@ module trie::trie {
         } else if (prefix < 4) {
             true
         }else {
-            abort 10000
+            abort Errors::invalid_argument(WrongNodeKeyPrefix)
         };
         let offset = 2 - prefix % 2;
         (leaf, slice_to_end(&encoded_path, (offset as u64)))
     }
 
 
-    struct TrieDB has store {
+    struct TrieDB has key, store {
         /// hash_of_value -> value
         data: Table<HashValue, vector<u8>>,
     }
@@ -390,6 +395,11 @@ module trie::trie {
             data: Table::new()
         }
     }
+
+    public fun save(signer: &signer, trie: TrieDB) {
+        move_to(signer, trie)
+    }
+
 
     /// Add encoded node data to trie db.
     /// no matter the length of it, always hash and save it,
@@ -412,8 +422,7 @@ module trie::trie {
     }
 
     public fun get(trie: &TrieDB, root: HashValue, key: &vector<u8>): Option<vector<u8>> {
-        let nibble_path = byte_utils::to_nibbles(key);
-        let (_, path_remainder, path_value) = walk_node_path(trie, root, &nibble_path);
+        let (_, path_remainder, path_value) = walk_node_path(trie, root, key);
         let exists = (length(&path_remainder) == 0);
 
         // provided proof is not valid.
@@ -430,7 +439,6 @@ module trie::trie {
 
     fun walk_node_path_inner(trie: &TrieDB, node_id: ChildReference, path_in_nibble: &vector<u8>, path_index: u64, proof: vector<Node>): (vector<Node>, vector<u8>, Option<vector<u8>>) {
         let current_node = get_trie_node(trie, node_id);
-
         Vector::push_back(&mut proof, current_node);
         if (current_node.ty == Branch_Node_Type) {
             // branch node
@@ -481,7 +489,6 @@ module trie::trie {
             let node_partial_path = &current_node.partial_path;
             let path_remainder = slice_to_end(path_in_nibble, path_index);
             let shared_len = get_shared_length(node_partial_path, &path_remainder);
-
             if (shared_len == length(&path_remainder) && shared_len == length(node_partial_path)) {
                 // The key within this leaf matches our key exactly.
                 // Increment the key index to reflect that we have no remainder.
@@ -493,6 +500,9 @@ module trie::trie {
         }
     }
 
+    const KeyReminderEmpty: u64 = 400;
+    const LastNodePathEmpty: u64 = 401;
+    const LastNodePath_all_Shared: u64 = 402;
     /// Creates new nodes to support k/v pair insertion into a given tree.
     /// @param: `walk_path` path to the node nearest the kv pair.
     /// @param: `key_remainder` Portion of the initial key that must be inserted into the trie.
@@ -550,7 +560,7 @@ module trie::trie {
                         edit_branch_value(borrow_mut_as_branch(Vector::borrow_mut(&mut walk_path, walk_path_len - 1)), last_node.value);
                     };
                     {
-                        assert!(!Vector::is_empty(&key_remainer), 1000);
+                        assert!(!Vector::is_empty(&key_remainer), Errors::invalid_state(KeyReminderEmpty));
                         Vector::push_back(&mut walk_path, make_leaf_node(
                             slice_to_end(&key_remainer, 1),
                             value
@@ -563,7 +573,7 @@ module trie::trie {
                     };
 
                     {
-                        assert!(!Vector::is_empty(&last_node_partial_path), 1000);
+                        assert!(!Vector::is_empty(&last_node_partial_path), Errors::invalid_state(LastNodePathEmpty));
                         Vector::push_back(&mut walk_path, make_leaf_node(
                             slice_to_end(&last_node_partial_path, 1),
                             last_node.value
@@ -591,7 +601,7 @@ module trie::trie {
             let last_node = borrow_as_extension(&last_node);
             let last_node_partial_path = &last_node.partial_path;
             let shared_nibble_len = get_shared_length(last_node_partial_path, &key_remainer);
-            assert!(shared_nibble_len != length(last_node_partial_path), 2000);
+            assert!(shared_nibble_len != length(last_node_partial_path), Errors::invalid_state(LastNodePath_all_Shared));
 
             if (shared_nibble_len != 0) {
                 // We've got some shared nibbles between the last node and our key remainder.
@@ -612,11 +622,27 @@ module trie::trie {
 
             let walk_path_len = length(&walk_path);
 
-            edit_branch_index(
-                borrow_mut_as_branch(Vector::borrow_mut(&mut walk_path, walk_path_len - 1)),
-                *Vector::borrow(&last_node_partial_path, 0),
-                save_node(trie, make_extension_node(slice_to_end(&last_node_partial_path, 1), last_node.child))
-            );
+            {
+                if (length(&last_node_partial_path) == 1) {
+                    // We're dealing with an unnecessary extension node.
+                    // We're going to delete the node entirely.
+                    // Simply insert its current value into the branch index.
+                    edit_branch_index(
+                        borrow_mut_as_branch(Vector::borrow_mut(&mut walk_path, walk_path_len - 1)),
+                        *Vector::borrow(&last_node_partial_path, 0),
+                        last_node.child
+                    );
+                } else {
+                    // We're dealing with a shrinking extension node.
+                    // We need to modify the node to decrease the size of the key.
+                    edit_branch_index(
+                        borrow_mut_as_branch(Vector::borrow_mut(&mut walk_path, walk_path_len - 1)),
+                        *Vector::borrow(&last_node_partial_path, 0),
+                        save_node(trie, make_extension_node(slice_to_end(&last_node_partial_path, 1), last_node.child))
+                    );
+                }
+            };
+
 
             if (Vector::is_empty(&key_remainer)) {
                 edit_branch_value(
@@ -663,7 +689,10 @@ module trie::trie {
                         reversed_nibble_key = slice_to_end(&reversed_nibble_key, 1);
                     }
                 };
+
                 prev_node_ref = Option::some(save_node(trie, current_node));
+
+                i = i - 1;
             };
             let root = Option::destroy_some(prev_node_ref);
             // If the root node is < 32 bytes, it won't have a stored hash
@@ -691,6 +720,7 @@ module trie::trie {
         }
     }
 
+    const BadHashInStorage: u64 = 500;
     fun get_trie_node(trie: &TrieDB, node_id: ChildReference): Node {
         let node_data = if (node_id.inline) {
             assert!(Vector::length(&node_id.data) < 32, 32);
@@ -699,7 +729,7 @@ module trie::trie {
             assert!(Vector::length(&node_id.data) == 32, 32);
             let node_data = *Table::borrow(&trie.data, hash_value::new(node_id.data));
             // bad hash in storage
-            assert!(Vector::length(&node_data) >= 32 && keccak256(node_data) == node_id.data, 1000);
+            assert!(keccak256(node_data) == node_id.data, Errors::invalid_state(BadHashInStorage));
             node_data
         };
         rlp_decode(&node_data)
