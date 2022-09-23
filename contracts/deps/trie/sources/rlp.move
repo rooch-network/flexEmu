@@ -1,171 +1,136 @@
 module trie::rlp {
     use StarcoinFramework::Vector;
-    use trie::byte_utils;
-    use StarcoinFramework::BCS;
+    use trie::byte_utils::slice;
+    use StarcoinFramework::Vector::length;
 
-    const INVALID_RLP_DATA: u64 = 100;
-    const DATA_TOO_SHORT: u64 = 101;
 
-    /// Decode data into array of bytes.
-    /// Nested arrays are not supported.
-    public fun encode_list(data: &vector<vector<u8>>): vector<u8> {
-        let list_len = Vector::length(data);
-        let rlp = Vector::empty<u8>();
+    struct Rlp has copy, drop {
+        bytes: vector<u8>,
+    }
+    struct PayloadInfo has copy, drop {
+        header_len: u64,
+        value_len: u64
+    }
+
+    public fun new(data: vector<u8>): Rlp {
+        Rlp {bytes: data}
+    }
+    public fun raw(rlp: &Rlp): vector<u8> {
+        rlp.bytes
+    }
+    const RlpExpectedToBeList: u64 = 1000;
+    const RlpExpectedToBeData: u64 = 1001;
+    public fun as_val(rlp: &Rlp): vector<u8> {
+        assert!(is_data(rlp), RlpExpectedToBeData);
+        decode_value(&rlp.bytes)
+    }
+    public fun as_list(rlp: &Rlp): vector<Rlp> {
+        assert!(is_list(rlp), RlpExpectedToBeList);
+        let rets = Vector::empty();
+        let list_info = payload_info(&rlp.bytes, 0);
+        let i = list_info.header_len;
+        while (i < length(&rlp.bytes)) {
+            let info = payload_info(&rlp.bytes, i);
+            let to_consume = info.header_len + info.value_len;
+            Vector::push_back(&mut rets, new(slice(&rlp.bytes, i, i + to_consume)));
+            i = i + to_consume;
+        };
+        rets
+    }
+
+
+    /// Returns an Rlp item in a list at the given index.
+    public fun at(rlp: &Rlp, index: u64): Rlp {
+        assert!(is_list(rlp), RlpExpectedToBeList);
+        let offset = 0;
+        let list_info = payload_info(&rlp.bytes, offset);
+        offset = offset + list_info.header_len;
+
+        let consumed = consume_items(&rlp.bytes, offset, index);
+
+        offset = offset + consumed;
+        let found = payload_info(&rlp.bytes, offset);
+        let data  = slice( &rlp.bytes, offset, offset + found.header_len + found.value_len);
+        new(data)
+    }
+
+    fun consume_items(bytes: &vector<u8>,offset: u64, items: u64): u64 {
         let i = 0;
-        while (i < list_len) {
-            let item = Vector::borrow(data, i);
-            let encoding = encode(item);
-            Vector::append<u8>(&mut rlp, encoding);
-            i = i + 1;
+        let consumed = 0;
+        while (i < items) {
+            let info = payload_info(bytes, offset);
+            let to_consume = (info.header_len + info.value_len);
+            offset = offset + to_consume;
+            consumed = consumed + to_consume;
+            i = i+1;
         };
+        consumed
+    }
 
-        let rlp_len = Vector::length(&rlp);
-        let output = Vector::empty<u8>();
-        if (rlp_len < 56) {
-            Vector::push_back<u8>(&mut output, (rlp_len as u8) + 192u8);
-            Vector::append<u8>(&mut output, rlp);
+    /// use (vector, offset) to emulate slice
+    public fun payload_info(header_bytes: &vector<u8>,offset: u64): PayloadInfo {
+        let first_byte = *Vector::borrow(header_bytes, offset + 0);
+        if (first_byte < 128) {
+            PayloadInfo {header_len: 0, value_len: 1}
+        } else if ( first_byte < 56 + 128) {
+            PayloadInfo {header_len: 1, value_len: (first_byte as u64) - 128}
+        } else if (first_byte < 192) {
+            let len_of_len = first_byte - 183; // 183 = 128 + 56 - 1
+            let length = decode_size(header_bytes, offset + 1, len_of_len);
+            PayloadInfo {header_len: 1+ (len_of_len as u64), value_len: length}
+        } else if (first_byte < 192 + 56) {
+            PayloadInfo {header_len: 1, value_len: (first_byte as u64) - 192}
         } else {
-            let length_BE = encode_integer_in_big_endian(rlp_len);
-            let length_BE_len = Vector::length(&length_BE);
-            Vector::push_back<u8>(&mut output, (length_BE_len as u8) + 247u8);
-            Vector::append<u8>(&mut output, length_BE);
-            Vector::append<u8>(&mut output, rlp);
-        };
-        output
-    }
-
-    /// Decode data into array of bytes.
-    /// Nested arrays are not supported.
-    public fun decode_list(data: &vector<u8>): vector<vector<u8>> {
-        let (decoded, consumed) = decode(data, 0);
-        assert!(consumed == Vector::length(data), INVALID_RLP_DATA);
-        decoded
-    }
-
-    public fun encode_integer_in_big_endian(len: u64): vector<u8> {
-        let bytes: vector<u8> = BCS::to_bytes(&len);
-        let bytes_len = Vector::length(&bytes);
-        let i = bytes_len;
-        while (i > 0) {
-            let value = *Vector::borrow(&bytes, i - 1);
-            if (value > 0) break;
-            i = i - 1;
-        };
-
-        let output = Vector::empty<u8>();
-        while (i > 0) {
-            let value = *Vector::borrow(&bytes, i - 1);
-            Vector::push_back<u8>(&mut output, value);
-            i = i - 1;
-        };
-        output
-    }
-
-    public fun encode(data: &vector<u8>): vector<u8> {
-        let data_len = Vector::length(data);
-        let rlp = Vector::empty<u8>();
-        if (data_len == 1 && *Vector::borrow(data, 0) < 128u8) {
-            Vector::append<u8>(&mut rlp, *data);
-        } else if (data_len < 56) {
-            Vector::push_back<u8>(&mut rlp, (data_len as u8) + 128u8);
-            Vector::append<u8>(&mut rlp, *data);
-        } else {
-            let length_BE = encode_integer_in_big_endian(data_len);
-            let length_BE_len = Vector::length(&length_BE);
-            Vector::push_back<u8>(&mut rlp, (length_BE_len as u8) + 183u8);
-            Vector::append<u8>(&mut rlp, length_BE);
-            Vector::append<u8>(&mut rlp, *data);
-        };
-        rlp
-    }
-
-    fun decode(
-        data: &vector<u8>,
-        offset: u64
-    ): (vector<vector<u8>>, u64) {
-        let data_len = Vector::length(data);
-        assert!(offset < data_len, DATA_TOO_SHORT);
-        let first_byte = *Vector::borrow(data, offset);
-        if (first_byte >= 248u8) {
-            // 0xf8
-            let length_of_length = ((first_byte - 247u8) as u64);
-            assert!(offset + length_of_length < data_len, DATA_TOO_SHORT);
-            let length = unarrayify_integer(data, offset + 1, (length_of_length as u8));
-            assert!(offset + length_of_length + length < data_len, DATA_TOO_SHORT);
-            decode_children(data, offset, offset + 1 + length_of_length, length_of_length + length)
-        } else if (first_byte >= 192u8) {
-            // 0xc0
-            let length = ((first_byte - 192u8) as u64);
-            assert!(offset + length < data_len, DATA_TOO_SHORT);
-            decode_children(data, offset, offset + 1, length)
-        } else if (first_byte >= 184u8) {
-            // 0xb8
-            let length_of_length = ((first_byte - 183u8) as u64);
-            assert!(offset + length_of_length < data_len, DATA_TOO_SHORT);
-            let length = unarrayify_integer(data, offset + 1, (length_of_length as u8));
-            assert!(offset + length_of_length + length < data_len, DATA_TOO_SHORT);
-
-            let bytes = byte_utils::slice(data, offset + 1 + length_of_length, offset + 1 + length_of_length + length);
-            (Vector::singleton(bytes), 1 + length_of_length + length)
-        } else if (first_byte >= 128u8) {
-            // 0x80
-            let length = ((first_byte - 128u8) as u64);
-            assert!(offset + length < data_len, DATA_TOO_SHORT);
-            let bytes = byte_utils::slice(data, offset + 1, offset + 1 + length);
-            (Vector::singleton(bytes), 1 + length)
-        } else {
-            let bytes = byte_utils::slice(data, offset, offset + 1);
-            (Vector::singleton(bytes), 1)
+            let len_of_len = first_byte - 247; // 247 = 192 + 56 - 1
+            let length = decode_size(header_bytes, offset + 1, len_of_len);
+            PayloadInfo {header_len: 1+ (len_of_len as u64), value_len: length}
         }
     }
-
-    fun decode_children(
+    public fun decode_size(
         data: &vector<u8>,
         offset: u64,
-        child_offset: u64,
-        length: u64
-    ): (vector<vector<u8>>, u64) {
-        let result = Vector::empty();
-
-        while (child_offset < offset + 1 + length) {
-            let (decoded, consumed) = decode(data, child_offset);
-            Vector::append(&mut result, decoded);
-            child_offset = child_offset + consumed;
-            assert!(child_offset <= offset + 1 + length, DATA_TOO_SHORT);
-        };
-        (result, 1 + length)
-    }
-
-
-    public fun unarrayify_integer(
-        data: &vector<u8>,
-        offset: u64,
-        length: u8
+        size_len: u8
     ): u64 {
         let result = 0;
         let i = 0u8;
-        while (i < length) {
+        while (i < size_len) {
             result = result * 256 + (*Vector::borrow(data, offset + (i as u64)) as u64);
             i = i + 1;
         };
         result
     }
 
+
+
+    public fun is_null(rlp: &Rlp): bool {
+        Vector::is_empty(&rlp.bytes)
+    }
+    public fun is_empty(rlp: &Rlp): bool {
+        !is_null(rlp) && ((*Vector::borrow(&rlp.bytes, 0) == 192) || (*Vector::borrow(&rlp.bytes, 0) == 128))
+    }
+    public fun is_list(rlp: &Rlp): bool {
+        !is_null(rlp) && (*Vector::borrow(&rlp.bytes, 0) >= 192)
+    }
+    public fun is_data(rlp: &Rlp): bool {
+        !is_null(rlp) && (*Vector::borrow(&rlp.bytes, 0) < 192)
+    }
+
+    fun decode_value(bytes: &vector<u8>): vector<u8> {
+        let info  =payload_info(bytes, 0);
+        slice(bytes, info.header_len, info.header_len + info.value_len)
+    }
+
     #[test]
-    fun test_encode_and_decode_list() {
-        let input = Vector::empty<vector<u8>>();
-        Vector::push_back(&mut input, b"cat");
-        Vector::push_back(&mut input, b"dog");
-        Vector::push_back(&mut input, encode_integer_in_big_endian(1));
-        Vector::push_back(&mut input, encode_integer_in_big_endian(0));
-        Vector::push_back(&mut input, x"a9302463fd528ce8aca2d5ad58de0622f07e2107c12a780f67c624592bbcc13d");
-        Vector::push_back(&mut input, x"d80d4b7c890cb9d6a4893e6b52bc34b56b25335cb13716e0d1d31383e6b41505");
-
-        let bin = encode_list(&input);
-        let decoding = decode_list(&bin);
-
-        let len = Vector::length(&decoding);
-        assert!(len == Vector::length(&input), 101);
-        assert!(input == decoding, 102);
+    fun test_decoding() {
+        {
+            let data = x"f84d0589010efbef67941f79b2a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+            let rlp = new(data);
+            let elems = as_list(&rlp);
+            assert!(length(&elems) == 4, 4);
+            assert!(as_val(&Vector::pop_back(&mut elems)) ==  x"c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470", 1001);
+            assert!(as_val(&Vector::pop_back(&mut elems)) == x"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421", 1002);
+            assert!(as_val(&Vector::pop_back(&mut elems)) == x"010efbef67941f79b2", 1003);
+            assert!(as_val(&Vector::pop_back(&mut elems)) == x"05", 1004);
+        };
     }
 }

@@ -1,11 +1,11 @@
-module trie::rlp_encoder {
+module trie::rlp_stream {
     use StarcoinFramework::Vector;
     use StarcoinFramework::Option;
-    use trie::rlp;
-    use trie::rlp::encode_integer_in_big_endian;
+    use StarcoinFramework::BCS;
+
     use trie::byte_utils::{slice, slice_to_end};
 
-    struct Encoder has store, copy {
+    struct RlpStream has store, copy {
         buffer: vector<u8>,
         unfinished_list: vector<ListInfo>,
     }
@@ -14,46 +14,46 @@ module trie::rlp_encoder {
         current: u64,
         max: Option::Option<u64>,
     }
-    public fun new(): Encoder {
-        Encoder {
+    public fun new(): RlpStream {
+        RlpStream {
             buffer: Vector::empty(),
             unfinished_list: Vector::empty(),
         }
     }
-    public fun new_list(len: u64): Encoder {
+    public fun new_list(len: u64): RlpStream {
         let encoder = new();
         begin_list(&mut encoder, len);
         encoder
     }
-    public fun is_finished(encoder: &Encoder): bool {
+    public fun is_finished(encoder: &RlpStream): bool {
         Vector::is_empty(&encoder.unfinished_list)
     }
 
     /// Streams out encoded bytes.
     /// abort is stream is not finished
-    public fun out(encoder: Encoder): vector<u8> {
+    public fun out(encoder: RlpStream): vector<u8> {
         assert!(is_finished(&encoder), 1000);
-        let Encoder {buffer, unfinished_list: _} = encoder;
+        let RlpStream {buffer, unfinished_list: _} = encoder;
         buffer
     }
 
-    public fun append_empty_data(encoder: &mut Encoder) {
+    public fun append_empty_data(encoder: &mut RlpStream) {
         append(encoder, Vector::empty());
     }
     /// Appends value to the end of stream.
-    public fun append(encoder: &mut Encoder, value: vector<u8>) {
-        let encoded_value = rlp::encode(&value);
+    public fun append(encoder: &mut RlpStream, value: vector<u8>) {
+        let encoded_value = encode_value(&value);
         Vector::append(&mut encoder.buffer, encoded_value);
         note_appended(encoder, 1);
     }
 
     /// Appends raw (pre-serialised) RLP data. Use with caution.
-    public fun append_raw(encoder: &mut Encoder, bytes: vector<u8>, item_count: u64) {
+    public fun append_raw(encoder: &mut RlpStream, bytes: vector<u8>, item_count: u64) {
         Vector::append(&mut encoder.buffer, bytes);
         note_appended(encoder, item_count);
     }
 
-    fun begin_list(encoder: &mut Encoder, len: u64) {
+    fun begin_list(encoder: &mut RlpStream, len: u64) {
         if (len == 0) {
             Vector::push_back(&mut encoder.buffer, 192u8);
         } else {
@@ -70,7 +70,7 @@ module trie::rlp_encoder {
         }
     }
 
-    fun note_appended(encoder: &mut Encoder, inserted_items: u64) {
+    fun note_appended(encoder: &mut RlpStream, inserted_items: u64) {
        if (Vector::is_empty(&encoder.unfinished_list)) {
            return
        };
@@ -92,7 +92,7 @@ module trie::rlp_encoder {
                 *Vector::borrow_mut(&mut encoder.buffer, current_list.position - 1) = (len as u8) + 192;
             } else {
                 let output = slice(&encoder.buffer, 0, current_list.position);
-                let length_BE = encode_integer_in_big_endian(len);
+                let length_BE = encode_size(len);
                 let length_BE_len = Vector::length(&length_BE);
                 *Vector::borrow_mut(&mut output, current_list.position - 1) = (length_BE_len as u8) + 247u8;
                 Vector::append<u8>(&mut output, length_BE);
@@ -104,9 +104,41 @@ module trie::rlp_encoder {
         }
 
     }
-    public fun encode_value(value: &vector<u8>): vector<u8> {
-        rlp::encode(value)
+    public fun encode_value(data: &vector<u8>): vector<u8> {
+        let data_len = Vector::length(data);
+        let rlp = Vector::empty<u8>();
+        if (data_len == 1 && *Vector::borrow(data, 0) < 128u8) {
+            Vector::append<u8>(&mut rlp, *data);
+        } else if (data_len < 56) {
+            Vector::push_back<u8>(&mut rlp, (data_len as u8) + 128u8);
+            Vector::append<u8>(&mut rlp, *data);
+        } else {
+            let length_BE = encode_size(data_len);
+            let length_BE_len = Vector::length(&length_BE);
+            Vector::push_back<u8>(&mut rlp, (length_BE_len as u8) + 183u8);
+            Vector::append<u8>(&mut rlp, length_BE);
+            Vector::append<u8>(&mut rlp, *data);
+        };
+        rlp
     }
+    fun encode_size(len: u64): vector<u8> {
+        // BCS int is in little endian.
+        let bytes: vector<u8> = BCS::to_bytes(&len);
+
+        // remove trailing zero bytes.
+        let i = Vector::length(&bytes);
+        while (i > 0) {
+            let last_elem = Vector::pop_back(&mut bytes);
+            if (last_elem != 0) {
+                Vector::push_back(&mut bytes, last_elem);
+                break
+            };
+            i = i - 1;
+        };
+        Vector::reverse(&mut bytes);
+        bytes
+    }
+
 
     #[test]
     fun test_encoding() {

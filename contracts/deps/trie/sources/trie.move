@@ -11,9 +11,9 @@ module trie::trie {
     use StarcoinFramework::Option;
     use StarcoinFramework::Errors;
     use StarcoinFramework::Vector;
-    use trie::rlp_decoder;
-    use trie::rlp_encoder;
-    use trie::rlp_decoder::Rlp;
+    use trie::rlp;
+    use trie::rlp_stream;
+    use trie::rlp::Rlp;
     use trie::byte_utils::{from_nibbles};
     //use StarcoinFramework::Hash::keccak;
     const HASH_LENGTH: u8 = 32;
@@ -211,9 +211,9 @@ module trie::trie {
 
     public fun from_rlp_elems(elems: &vector<Rlp>): Node {
         if (length(elems) == 2) {
-            let (leaf, partial_path) = decode_to_partial_path(&rlp_decoder::as_val(Vector::borrow(elems, 0)));
+            let (leaf, partial_path) = decode_to_partial_path(&rlp::as_val(Vector::borrow(elems, 0)));
             if (leaf) {
-                make_leaf_node(partial_path, rlp_decoder::as_val(Vector::borrow(elems, 1)))
+                make_leaf_node(partial_path, rlp::as_val(Vector::borrow(elems, 1)))
             } else {
                 make_extension_node(partial_path, decode_child_reference(Vector::borrow(elems, 1)))
             }
@@ -232,54 +232,54 @@ module trie::trie {
     }
 
     public fun rlp_decode(node_data: &vector<u8>): Node {
-        let rlp = rlp_decoder::new(*node_data);
-        let elems = rlp_decoder::as_list(&rlp);
+        let rlp = rlp::new(*node_data);
+        let elems = rlp::as_list(&rlp);
         from_rlp_elems(&elems)
     }
 
     public fun rlp_encode(node: &Node): vector<u8> {
         if (node.ty == Leaf_Node_Type) {
             let node = Option::borrow(&node.leaf);
-            let encoder = rlp_encoder::new_list(2);
-            rlp_encoder::append(&mut encoder, encode_partial_path(node.partial_path, true));
-            rlp_encoder::append(&mut encoder, node.value);
-            rlp_encoder::out(encoder)
+            let encoder = rlp_stream::new_list(2);
+            rlp_stream::append(&mut encoder, encode_partial_path(node.partial_path, true));
+            rlp_stream::append(&mut encoder, node.value);
+            rlp_stream::out(encoder)
         } else if (node.ty == Extension_Node_Type) {
             let node = Option::borrow(&node.extension);
-            let encoder = rlp_encoder::new_list(2);
-            rlp_encoder::append(&mut encoder, encode_partial_path(node.partial_path, false));
+            let encoder = rlp_stream::new_list(2);
+            rlp_stream::append(&mut encoder, encode_partial_path(node.partial_path, false));
             if (node.child.inline) {
-                rlp_encoder::append_raw(&mut encoder, node.child.data, 1);
+                rlp_stream::append_raw(&mut encoder, node.child.data, 1);
             } else {
-                rlp_encoder::append(&mut encoder, node.child.data);
+                rlp_stream::append(&mut encoder, node.child.data);
             };
-            rlp_encoder::out(encoder)
+            rlp_stream::out(encoder)
         } else if (node.ty == Branch_Node_Type) {
             let node = Option::borrow(&node.branch);
-            let encoder = rlp_encoder::new_list(17);
+            let encoder = rlp_stream::new_list(17);
             let i = 0;
             while (i < 16) {
                 let child = Vector::borrow(&node.branches, i);
                 if (Option::is_none(child)) {
-                    rlp_encoder::append_empty_data(&mut encoder);
+                    rlp_stream::append_empty_data(&mut encoder);
                 } else {
                     let c = Option::borrow(child);
                     if (c.inline) {
-                        rlp_encoder::append_raw(&mut encoder, c.data, 1);
+                        rlp_stream::append_raw(&mut encoder, c.data, 1);
                     } else {
-                        rlp_encoder::append(&mut encoder, c.data);
+                        rlp_stream::append(&mut encoder, c.data);
                     };
                 };
                 i = i + 1;
             };
             let value = &node.value;
             if (Option::is_none(value)) {
-                rlp_encoder::append_empty_data(&mut encoder);
+                rlp_stream::append_empty_data(&mut encoder);
             } else {
-                rlp_encoder::append(&mut encoder, *Option::borrow(value));
+                rlp_stream::append(&mut encoder, *Option::borrow(value));
             };
 
-            rlp_encoder::out(encoder)
+            rlp_stream::out(encoder)
         } else if (node.ty == Empty_Node_Type) {
             RLP_NULL_BYTES
         } else {
@@ -288,15 +288,15 @@ module trie::trie {
     }
 
     fun decode_optional_value(rlp: &Rlp): Option<vector<u8>> {
-        if (rlp_decoder::is_empty(rlp)) {
+        if (rlp::is_empty(rlp)) {
             Option::none()
         } else {
-            Option::some(rlp_decoder::as_val(rlp))
+            Option::some(rlp::as_val(rlp))
         }
     }
 
     fun decode_optional_child_reference(rlp: &Rlp): Option<ChildReference> {
-        if (rlp_decoder::is_empty(rlp)) {
+        if (rlp::is_empty(rlp)) {
             Option::none()
         } else {
             Option::some(decode_child_reference(rlp))
@@ -304,15 +304,15 @@ module trie::trie {
     }
 
     fun decode_child_reference(rlp: &Rlp): ChildReference {
-        if (length(&rlp_decoder::raw(rlp)) < (HASH_LENGTH as u64)) {
+        if (length(&rlp::raw(rlp)) < (HASH_LENGTH as u64)) {
             ChildReference {
                 inline: true,
-                data: rlp_decoder::raw(rlp)
+                data: rlp::raw(rlp)
             }
         } else {
             ChildReference {
                 inline: false,
-                data: rlp_decoder::as_val(rlp)
+                data: rlp::as_val(rlp)
             }
         }
     }
