@@ -131,6 +131,12 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.sigaltstack(core, p0, p1)?
             }
+            SysCalls::SIGRETURN => {
+                self.sigreturn(core)?
+            }
+            SysCalls::RT_SIGRETURN => {
+                self.sigreturn(core)?
+            }
             SysCalls::BRK => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.brk(core, p0)?
@@ -151,6 +157,31 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.get_random(core, p0, p1)?
+            }
+            SysCalls::SCHED_GETAFFINITY => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+
+                self.sched_getaffinity(core, p0, p1, p2)?
+            }
+            SysCalls::SCHED_YIELD => {
+                self.sched_yield(core)?
+            }
+            SysCalls::TKILL => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.tkill(core, p0, p1, p2)?
+            }
+            SysCalls::FUTEX => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p2 = cc.get_raw_param(core, 3, None)?;
+                let p2 = cc.get_raw_param(core, 4, None)?;
+                let p2 = cc.get_raw_param(core, 5, None)?;
+                self.futex(core, p0, p1, p2, p3, p4, p5)?
             }
 
             _ => {
@@ -213,6 +244,7 @@ impl Inner {
         log::debug!("set_thread_area({})", u_info_addr);
         Ok(0)
     }
+
     fn set_tid_address<'a, A: ArchT>(
         &mut self,
         _core: &mut Engine<'a, A>,
@@ -222,6 +254,7 @@ impl Inner {
         log::debug!("set_tid_address({})", tidptr);
         Ok(42)
     }
+
     fn poll<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
@@ -299,14 +332,6 @@ impl Inner {
         );
         Ok(0)
     }
-    fn syscall_signal<'a, A>(
-        &mut self,
-        _core: &mut Engine<'a, A>,
-        _sig: u64,
-        _sighandler: u64,
-    ) -> Result<i64, uc_error> {
-        Ok(0)
-    }
 
     // TODO: not implemented .
     fn sigaltstack<'a, A: ArchT>(
@@ -323,6 +348,19 @@ impl Inner {
         );
         Ok(0)
     }
+
+    // TODO: not implemented .
+    fn sigreturn<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+    ) -> Result<i64, uc_error> {
+        log::warn!(
+            "not implemented, sigreturn pc: {}",
+            core.pc()?
+        );
+        Ok(0)
+    }
+
     fn brk<'a, A: ArchT>(&mut self, core: &mut Engine<'a, A>, inp: u64) -> Result<i64, uc_error> {
         log::debug!("brk({}) pc: {}", inp, core.pc()?);
         // current brk_address will be modified if inp is not NULL(zero)
@@ -408,6 +446,61 @@ impl Inner {
             left -= n;
         }
 
+        Ok(0)
+    }
+    fn sched_getaffinity<'a, A: ArchT> (
+        &mut self,
+        core: &mut Engine<'a, A>,
+        pid: u64,
+        cpusetsize: u64,
+        mask: u64,
+    ) -> Result<i64, uc_error> {
+
+        log::warn!(
+            "not implemented, sched_getaffinity pc: {}",
+            core.pc()?
+        );
+        Ok(0)
+    }
+    fn sched_yield<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+    ) -> Result<i64, uc_error> {
+        log::warn!(
+            "not implemented, sched_yield pc: {}",
+            core.pc()?
+        );
+        Ok(0)
+    }
+    fn tkill<'a, A: ArchT> (
+        &mut self,
+        core: &mut Engine<'a, A>,
+        pid: u64,
+        cpusetsize: u64,
+        mask: u64,
+    ) -> Result<i64, uc_error> {
+
+        log::warn!(
+            "not implemented, tkill pc: {}",
+            core.pc()?
+        );
+        Ok(0)
+    }
+    fn futex<'a, A: ArchT> (
+        &mut self,
+        core: &mut Engine<'a, A>,
+        uaddr: u64,
+        op: u64,
+        val: u64,
+        timeout:u64,
+        uaddr2:u64,
+        val3:u64,
+    ) -> Result<i64, uc_error> {
+
+        log::warn!(
+            "not implemented, futex pc: {}",
+            core.pc()?
+        );
         Ok(0)
     }
 

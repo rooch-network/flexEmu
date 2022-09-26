@@ -40,10 +40,16 @@ pub enum SysCalls {
     RT_SIGACTION,
     RT_SIGPROCMASK,
     SYSCALL_SIGNAL,
+    SCHED_GETAFFINITY,
     SIGALTSTACK,
+    SIGRETURN,
+    RT_SIGRETURN,
     BRK,
     EXIT_GROUP,
     GETRANDOM,
+    FUTEX,
+    SCHED_YIELD,
+    TKILL,
 }
 
 impl SysCalls {
@@ -56,9 +62,15 @@ impl SysCalls {
             SysCalls::RT_SIGACTION => 3,
             SysCalls::RT_SIGPROCMASK => 4,
             SysCalls::SIGALTSTACK => 2,
+            SysCalls::SIGRETURN => 0,
+            SysCalls::RT_SIGRETURN => 0,
             SysCalls::BRK => 1,
             SysCalls::EXIT_GROUP => 1,
             SysCalls::GETRANDOM => 1,
+            SysCalls::FUTEX => 6,
+            SysCalls::SCHED_GETAFFINITY => 3,
+            SysCalls::SCHED_YIELD => 0,
+            SysCalls::TKILL => 3,
             _ => todo!(),
         }
     }
