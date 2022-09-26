@@ -1,0 +1,11 @@
+[package]
+name = "signed_integer"
+version = "0.1.0"
+
+[dependencies]
+#MoveStdlib = { git = "https://github.com/starcoinorg/move.git", subdir = "language/move-stdlib", rev = "dev" }
+
+[addresses]
+signed_integer = "_"
+[dev-addresses]
+signed_integer =  "0x42"
