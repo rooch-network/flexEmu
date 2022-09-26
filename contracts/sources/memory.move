@@ -9,21 +9,24 @@ module omo::memory {
     use StarcoinFramework::Errors;
     use StarcoinFramework::Option;
 
-    struct MemoryStorage has key {
+    const REG_FAKE_ADDRESS_START: u64 = 0xffffffff + 1;
+    struct MemoryStorage has key, store {
         data: Option::Option<trie::TrieDB>
     }
+
+    /// A flash struct whose lifetime only constraints to one transaction.
+    /// It has no copy,drop, store, key
     struct Memory {
         storage_handle: address,
         data: trie::TrieDB
     }
-
-
 
     public fun create(signer: &signer) {
         move_to(signer, MemoryStorage {
             data: Option::some(trie::new())
         })
     }
+
     public fun get_mem(memory_addr: address): Memory acquires MemoryStorage {
          Memory {
              storage_handle: memory_addr,
@@ -57,14 +60,6 @@ module omo::memory {
         trie::update(&mut mem.data, state_hash, key, value)
     }
 
-    // public fun read_reg(state_hash: HashValue, reg_id: u64): u64 {
-    //     0
-    // }
-    //
-    // public fun read_reg_bits(state_hash: HashValue, reg_id: u64): Bits {
-    //     bits::from_u64(read_reg(state_hash, reg_id), 32)
-    // }
-    //
     public fun read_memory_bits(mem: &Memory, state_hash: HashValue, addr: u64): Bits {
         bits::from_u64(read_memory(mem, state_hash, addr), 32)
     }
@@ -76,13 +71,23 @@ module omo::memory {
         write_memory(mem, state_hash, addr, bits::data(&full_32bits))
     }
 
-    //
-    // public fun write_reg(state_hash: HashValue, reg_id: u64, v: u64): HashValue {
-    //     hash_value::new(empty<u8>())
-    // }
-    //
 
-    //
+    public fun read_reg(mem: &Memory, state_hash: HashValue, reg_id: u64): u64 {
+        read_memory(mem, state_hash, reg_id * 4 + REG_FAKE_ADDRESS_START)
+    }
+
+    public fun read_reg_bits(mem: &Memory, state_hash: HashValue, reg_id: u64): Bits {
+        read_memory_bits(mem, state_hash, reg_id * 4 + REG_FAKE_ADDRESS_START)
+    }
+
+
+    public fun write_reg(mem: &mut Memory, state_hash: HashValue, reg_id: u64, v: u64): HashValue {
+        write_memory(mem, state_hash, reg_id * 4 + REG_FAKE_ADDRESS_START, v)
+    }
+    public fun write_reg_bits(mem: &mut Memory, state_hash: HashValue, reg_id: u64, v: Bits): HashValue {
+        write_memory_bits(mem, state_hash, reg_id * 4 + REG_FAKE_ADDRESS_START, v)
+    }
+
 
     /// to be bytes
     const U32_MAX: u64 = 0xffffffff;
