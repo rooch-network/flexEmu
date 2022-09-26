@@ -19,10 +19,6 @@ module omo::mips {
 
     const EXIT_ADDRESS: u64 = 0xffffffff;
 
-    fun reg_to_mem_addr(reg_id: u64): u64 {
-        REG_OFFSET + reg_id * 4
-    }
-
     public fun step(mem: &mut Memory, state_hash: HashValue): HashValue {
         let pc = read_reg(mem, state_hash, REG_PC);
         if (pc == EXIT_ADDRESS) {
@@ -199,7 +195,7 @@ module omo::mips {
         // j-type j/jal
         if (opcode == 2 || opcode == 3) {
             if (opcode == 3) {
-                state_hash = write_memory(mem, state_hash, reg_to_mem_addr(REG_LR), pc + 8);
+                state_hash = write_reg(mem, state_hash, REG_LR, pc + 8);
             };
             let jump_address = bits::slice(insn, 25, 0);
             let higher = bits::slice(bits::from_u64(pc + 4, 32), 31, 28);
