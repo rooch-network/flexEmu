@@ -145,22 +145,30 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
             self.save()?
         };
 
-        let readset = Rc::new(RefCell::new(BTreeSet::new()));
-        let writeset = Rc::new(RefCell::new(BTreeSet::new()));
+        let mem_access_sequence = Rc::new(RefCell::new(vec![]));
         let handle = self.core.add_mem_hook(
             HookType::MEM_READ_AFTER | HookType::MEM_WRITE,
             0,
             u32::MAX as u64,
             {
-                let readset = readset.clone();
-                let writeset = writeset.clone();
+                let mem_access = mem_access_sequence.clone();
                 move |_uc, mem_type, addr, size, _value| {
                     match mem_type {
                         MemType::WRITE => {
-                            writeset.borrow_mut().insert((addr, size));
+                            mem_access.borrow_mut().push(MemAccess {
+                                write: true,
+                                addr,
+                                size,
+                                value,
+                            });
                         }
                         MemType::READ_AFTER => {
-                            readset.borrow_mut().insert((addr, size));
+                            mem_access.borrow_mut().push(MemAccess {
+                                write: false,
+                                addr,
+                                size,
+                                value,
+                            });
                         }
                         _ => {}
                     }
@@ -170,19 +178,15 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
         )?;
         self.core
             .emu_start(self.core.pc()?, exitpoint, timeout.unwrap_or_default(), 1)?;
-        self.core.remove_hook(handle);
+        self.core.remove_hook(handle)?;
         let state_after = self.save()?;
         Ok(StateChange {
             state_after,
             state_before,
             step: (count + 1) as u64,
-            readset: {
-                let rs = readset.borrow();
-                rs.deref().clone()
-            },
-            writeset: {
-                let ws = writeset.borrow();
-                ws.deref().clone()
+            access: {
+                let x = mem_access_sequence.borrow();
+                x.to_vec()
             },
         })
     }
@@ -208,8 +212,8 @@ pub fn default_exitpoint(point_size: u8) -> u64 {
 
 #[derive(Serialize, Debug)]
 pub struct EmulatorState {
-    regs: RegisterState,
-    memories: MemoryState,
+    pub regs: RegisterState,
+    pub memories: MemoryState,
 }
 
 #[derive(Serialize, Debug)]
@@ -217,6 +221,13 @@ pub struct StateChange {
     pub state_before: EmulatorState,
     pub state_after: EmulatorState,
     pub step: u64,
-    pub readset: BTreeSet<(u64, usize)>,
-    pub writeset: BTreeSet<(u64, usize)>,
+    pub access: Vec<MemAccess>,
+}
+#[derive(Serialize, Debug, Clone, Copy)]
+pub struct MemAccess {
+    /// read or write
+    write: bool,
+    addr: u64,
+    size: usize,
+    value: i64,
 }

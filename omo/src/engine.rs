@@ -64,9 +64,15 @@ pub struct MemoryState {
     data: BTreeMap<u64, Chunk>,
 }
 
+impl From<MemoryState> for BTreeMap<u64, Chunk> {
+    fn from(t: MemoryState) -> Self {
+        t.data
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[repr(transparent)]
-struct Chunk(#[serde(with = "hex")] [u8; 4]);
+pub struct Chunk(#[serde(with = "hex")] [u8; 4]);
 
 impl Chunk {
     fn is_zero(&self) -> bool {

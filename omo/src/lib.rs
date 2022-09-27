@@ -20,3 +20,5 @@ pub mod stack;
 pub mod utils;
 
 pub const PAGE_SIZE: u32 = 0x1000;
+
+pub mod step_proof;

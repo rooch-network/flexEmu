@@ -16,6 +16,7 @@ use std::{
     num::NonZeroUsize,
     path::PathBuf,
 };
+use omo::emulator::StateChange;
 
 #[derive(Parser)]
 struct Options {
@@ -48,6 +49,9 @@ enum SubCommands {
         #[clap(short, long)]
         output_dir: Option<PathBuf>,
     },
+    GenStepProof {
+        step_dir: PathBuf,
+    }
 }
 
 fn main() -> Result<(), EmulatorError> {
@@ -136,21 +140,19 @@ fn main() -> Result<(), EmulatorError> {
                     .write(true)
                     .create(true)
                     .truncate(true)
-                    .open(output_dir.join("readset.json"))
+                    .open(output_dir.join("mem_access.json"))
                     .unwrap(),
-                &state_change.readset,
+                &state_change.access,
             )
             .unwrap();
-            serde_json::to_writer_pretty(
-                std::fs::File::options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(output_dir.join("writeset.json"))
-                    .unwrap(),
-                &state_change.writeset,
-            )
-            .unwrap();
+        }
+        SubCommands::GenStepProof { step_dir} => {
+
+            StateChange {
+                state_before: serde_json::from_reader(std::fs::File::options().read(true).open(step_dir.join("before_state.json")))?,
+                state_after: serde_json::from_reader(std::fs::File::options().read(true).open(step_dir.join("after_state.json")))?,
+                access: serde_json::from_reader(std::fs::File::options().read(true).open(step_dir.join("mem_access.json")))?,
+            }
         }
     }
     Ok(())
