@@ -183,6 +183,15 @@ impl Inner {
                 let p2 = cc.get_raw_param(core, 5, None)?;
                 self.futex(core, p0, p1, p2, p3, p4, p5)?
             }
+            SysCalls::EXIT => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.exit(core, p0)
+            }
+            SysCalls::CLOCK_GETTIME => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 0, None)?;
+                self.clock_gettime(core, p0, p1)
+            }
 
             _ => {
                 panic!("please handle syscall: {:?}", syscall);
@@ -501,6 +510,36 @@ impl Inner {
             "not implemented, futex pc: {}",
             core.pc()?
         );
+        Ok(0)
+    }
+    fn exit<'a, A: ArchT> (
+        &mut self,
+        core: &mut Engine<'a, A>,
+        code: u64,
+    ) -> Result<i64, uc_error> {
+
+        log::debug!(
+            "exit: {}",
+            code
+        );
+        core.emu_stop()?;
+        Ok(0)
+    }
+    fn clock_gettime<'a, A: ArchT> (
+        &mut self,
+        core: &mut Engine<'a, A>,
+        clock_id: u64,
+        tp: u64,
+    ) -> Result<i64, uc_error> {
+
+        log::debug!(
+            "clock_gettime: id {} tp: {}",
+            clock_id,
+            tp
+        );
+
+        let time:[u8;8] = [0,0,0,0,0,0,0,0];    // on 32 bits platform, 32bits for sec, 32bits for nsec.
+        core.mem_write(tp, &*time)?;
         Ok(0)
     }
 

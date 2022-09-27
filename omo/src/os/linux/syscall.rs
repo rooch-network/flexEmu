@@ -50,6 +50,9 @@ pub enum SysCalls {
     FUTEX,
     SCHED_YIELD,
     TKILL,
+    GETTIMEOFDAY,
+    CLOCK_GETTIME,
+    EXIT,
 }
 
 impl SysCalls {
