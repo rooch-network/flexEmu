@@ -12,14 +12,19 @@ use crate::{
     registers::{Registers, StackRegister},
     utils::{align_up, Packer},
 };
-use std::{cell::RefCell, collections::HashMap, io::{stderr, stdout, Write}, process};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    io::{stderr, stdout, Write},
+    process,
+};
 
+use crate::rand::{RAND_SOURCE, RAND_SOURCE_LEN};
 use std::{rc::Rc, str::FromStr};
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
-use crate::rand::{RAND_SOURCE, RAND_SOURCE_LEN};
 
 pub mod syscall;
 
@@ -131,12 +136,8 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.sigaltstack(core, p0, p1)?
             }
-            SysCalls::SIGRETURN => {
-                self.sigreturn(core)?
-            }
-            SysCalls::RT_SIGRETURN => {
-                self.sigreturn(core)?
-            }
+            SysCalls::SIGRETURN => self.sigreturn(core)?,
+            SysCalls::RT_SIGRETURN => self.sigreturn(core)?,
             SysCalls::BRK => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.brk(core, p0)?
@@ -165,9 +166,7 @@ impl Inner {
 
                 self.sched_getaffinity(core, p0, p1, p2)?
             }
-            SysCalls::SCHED_YIELD => {
-                self.sched_yield(core)?
-            }
+            SysCalls::SCHED_YIELD => self.sched_yield(core)?,
             SysCalls::TKILL => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
@@ -359,14 +358,8 @@ impl Inner {
     }
 
     // TODO: not implemented .
-    fn sigreturn<'a, A: ArchT>(
-        &mut self,
-        core: &mut Engine<'a, A>,
-    ) -> Result<i64, uc_error> {
-        log::warn!(
-            "not implemented, sigreturn pc: {}",
-            core.pc()?
-        );
+    fn sigreturn<'a, A: ArchT>(&mut self, core: &mut Engine<'a, A>) -> Result<i64, uc_error> {
+        log::warn!("not implemented, sigreturn pc: {}", core.pc()?);
         Ok(0)
     }
 
@@ -438,7 +431,6 @@ impl Inner {
         buf: u64,
         buf_len: u64,
     ) -> Result<i64, uc_error> {
-
         let mut left = buf_len;
         while left > 0 {
             let mut n = RAND_SOURCE_LEN;
@@ -446,7 +438,7 @@ impl Inner {
                 n = left;
             }
             log::debug!("get_random({}) content: {:x?}", n, RAND_SOURCE[0..n]);
-            let ret = match  Memory::write(core, buf, RAND_SOURCE[0..n]) {
+            let ret = match Memory::write(core, buf, RAND_SOURCE[0..n]) {
                 Err(_e) => {
                     return Ok(-1);
                 }
@@ -457,92 +449,60 @@ impl Inner {
 
         Ok(0)
     }
-    fn sched_getaffinity<'a, A: ArchT> (
+    fn sched_getaffinity<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
         pid: u64,
         cpusetsize: u64,
         mask: u64,
     ) -> Result<i64, uc_error> {
-
-        log::warn!(
-            "not implemented, sched_getaffinity pc: {}",
-            core.pc()?
-        );
+        log::warn!("not implemented, sched_getaffinity pc: {}", core.pc()?);
         Ok(0)
     }
-    fn sched_yield<'a, A: ArchT>(
-        &mut self,
-        core: &mut Engine<'a, A>,
-    ) -> Result<i64, uc_error> {
-        log::warn!(
-            "not implemented, sched_yield pc: {}",
-            core.pc()?
-        );
+    fn sched_yield<'a, A: ArchT>(&mut self, core: &mut Engine<'a, A>) -> Result<i64, uc_error> {
+        log::warn!("not implemented, sched_yield pc: {}", core.pc()?);
         Ok(0)
     }
-    fn tkill<'a, A: ArchT> (
+    fn tkill<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
         pid: u64,
         cpusetsize: u64,
         mask: u64,
     ) -> Result<i64, uc_error> {
-
-        log::warn!(
-            "not implemented, tkill pc: {}",
-            core.pc()?
-        );
+        log::warn!("not implemented, tkill pc: {}", core.pc()?);
         Ok(0)
     }
-    fn futex<'a, A: ArchT> (
+    fn futex<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
         uaddr: u64,
         op: u64,
         val: u64,
-        timeout:u64,
-        uaddr2:u64,
-        val3:u64,
+        timeout: u64,
+        uaddr2: u64,
+        val3: u64,
     ) -> Result<i64, uc_error> {
-
-        log::warn!(
-            "not implemented, futex pc: {}",
-            core.pc()?
-        );
+        log::warn!("not implemented, futex pc: {}", core.pc()?);
         Ok(0)
     }
-    fn exit<'a, A: ArchT> (
-        &mut self,
-        core: &mut Engine<'a, A>,
-        code: u64,
-    ) -> Result<i64, uc_error> {
-
-        log::debug!(
-            "exit: {}",
-            code
-        );
+    fn exit<'a, A: ArchT>(&mut self, core: &mut Engine<'a, A>, code: u64) -> Result<i64, uc_error> {
+        log::debug!("exit: {}", code);
         core.emu_stop()?;
         Ok(0)
     }
-    fn clock_gettime<'a, A: ArchT> (
+    fn clock_gettime<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
         clock_id: u64,
         tp: u64,
     ) -> Result<i64, uc_error> {
+        log::debug!("clock_gettime: id {} tp: {}", clock_id, tp);
 
-        log::debug!(
-            "clock_gettime: id {} tp: {}",
-            clock_id,
-            tp
-        );
-
-        let time:[u8;8] = [0,0,0,0,0,0,0,0];    // on 32 bits platform, 32bits for sec, 32bits for nsec.
+        let time: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0]; // on 32 bits platform, 32bits for sec, 32bits for nsec.
         core.mem_write(tp, &*time)?;
         Ok(0)
     }
-
 }
 
 const EBADF: u64 = 9;
