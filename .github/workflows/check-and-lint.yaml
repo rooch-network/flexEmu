@@ -11,26 +11,28 @@ jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./omo
+#    defaults:
+#      run:
+#        working-directory: ./omo
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
+        working-directory: ./omo
         with:
           profile: minimal
           toolchain: stable
           override: false
       - uses: actions-rs/cargo@v1
+        working-directory: ./omo
         with:
           command: check
 
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./omo
+#    defaults:
+#      run:
+#        working-directory: ./omo
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -40,6 +42,7 @@ jobs:
           override: false
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
+        working-directory: ./omo
         with:
           command: fmt
           args: --all -- --check
@@ -47,9 +50,6 @@ jobs:
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./omo
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -58,6 +58,7 @@ jobs:
           components: clippy
           override: false
       - uses: actions-rs/clippy-check@v1
+        working-directory: ./omo
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
