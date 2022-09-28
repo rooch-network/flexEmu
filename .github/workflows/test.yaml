@@ -23,8 +23,8 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          #toolchain: nightly
-          override: true
+          toolchain: nightly
+          override: false
       - name: Cache dependencies
         uses: actions/cache@v2
         env:

@@ -19,7 +19,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          override: true
+          override: false
       - name: Release Build
         run: cargo build --release
       - name: 'Upload Artifact'
