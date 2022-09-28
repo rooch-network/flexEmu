@@ -8,7 +8,7 @@ use crate::{
 use hex::ToHex;
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Cow,
     collections::{btree_map::Entry, BTreeMap},
     fmt::{Display, Formatter},
     ops::{Deref, DerefMut},
@@ -96,7 +96,7 @@ impl DerefMut for Chunk {
 impl MemoryState {
     /// delete blank memory chunk
     fn shrink(&mut self) {
-        self.data.retain(|k, v| !v.is_zero())
+        self.data.retain(|_k, v| !v.is_zero())
     }
 
     fn index_chunk_mut(&mut self, addr: u64) -> &mut [u8] {

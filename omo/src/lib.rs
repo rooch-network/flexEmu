@@ -14,9 +14,9 @@ pub mod errors;
 pub mod loader;
 pub mod memory;
 pub mod os;
+mod rand;
 pub mod registers;
 pub mod stack;
 pub mod utils;
-mod rand;
 
 pub const PAGE_SIZE: u32 = 0x1000;

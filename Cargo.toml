@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "omo",
+    "rust-mips-example"
+]

@@ -65,7 +65,7 @@ fn main() -> Result<(), EmulatorError> {
         SubCommands::Run { exec, args, envs } => {
             let binary = read(exec.as_path()).unwrap();
             let argv = {
-                let mut a = args.clone();
+                let mut a = args;
                 a.insert(0, exec.display().to_string());
                 a
             };
@@ -91,7 +91,7 @@ fn main() -> Result<(), EmulatorError> {
         } => {
             let binary = read(exec.as_path()).unwrap();
             let argv = {
-                let mut a = args.clone();
+                let mut a = args;
                 a.insert(0, exec.display().to_string());
                 a
             };
