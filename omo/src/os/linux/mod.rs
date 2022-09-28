@@ -16,7 +16,6 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     io::{stderr, stdout, Write},
-    process,
 };
 
 use crate::rand::{RAND_SOURCE, RAND_SOURCE_LEN};
@@ -177,19 +176,19 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
-                let p2 = cc.get_raw_param(core, 3, None)?;
-                let p2 = cc.get_raw_param(core, 4, None)?;
-                let p2 = cc.get_raw_param(core, 5, None)?;
+                let p3 = cc.get_raw_param(core, 3, None)?;
+                let p4 = cc.get_raw_param(core, 4, None)?;
+                let p5 = cc.get_raw_param(core, 5, None)?;
                 self.futex(core, p0, p1, p2, p3, p4, p5)?
             }
             SysCalls::EXIT => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
-                self.exit(core, p0)
+                self.exit(core, p0)?
             }
             SysCalls::CLOCK_GETTIME => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 0, None)?;
-                self.clock_gettime(core, p0, p1)
+                self.clock_gettime(core, p0, p1)?
             }
 
             _ => {
@@ -437,8 +436,12 @@ impl Inner {
             if left < RAND_SOURCE_LEN {
                 n = left;
             }
-            log::debug!("get_random({}) content: {:x?}", n, RAND_SOURCE[0..n]);
-            let ret = match Memory::write(core, buf, RAND_SOURCE[0..n]) {
+            log::debug!(
+                "get_random({}) content: {:x?}",
+                n,
+                &RAND_SOURCE[0..n as usize]
+            );
+            match Memory::write(core, buf, &RAND_SOURCE[0..n as usize]) {
                 Err(_e) => {
                     return Ok(-1);
                 }
@@ -452,9 +455,9 @@ impl Inner {
     fn sched_getaffinity<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
-        pid: u64,
-        cpusetsize: u64,
-        mask: u64,
+        _pid: u64,
+        _cpusetsize: u64,
+        _mask: u64,
     ) -> Result<i64, uc_error> {
         log::warn!("not implemented, sched_getaffinity pc: {}", core.pc()?);
         Ok(0)
@@ -466,9 +469,9 @@ impl Inner {
     fn tkill<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
-        pid: u64,
-        cpusetsize: u64,
-        mask: u64,
+        _pid: u64,
+        _cpusetsize: u64,
+        _mask: u64,
     ) -> Result<i64, uc_error> {
         log::warn!("not implemented, tkill pc: {}", core.pc()?);
         Ok(0)
@@ -476,12 +479,12 @@ impl Inner {
     fn futex<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
-        uaddr: u64,
-        op: u64,
-        val: u64,
-        timeout: u64,
-        uaddr2: u64,
-        val3: u64,
+        _uaddr: u64,
+        _op: u64,
+        _val: u64,
+        _timeout: u64,
+        _uaddr2: u64,
+        _val3: u64,
     ) -> Result<i64, uc_error> {
         log::warn!("not implemented, futex pc: {}", core.pc()?);
         Ok(0)
@@ -499,8 +502,8 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         log::debug!("clock_gettime: id {} tp: {}", clock_id, tp);
 
-        let time: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0]; // on 32 bits platform, 32bits for sec, 32bits for nsec.
-        core.mem_write(tp, &*time)?;
+        let time = [0u8; 8]; // on 32 bits platform, 32bits for sec, 32bits for nsec.
+        core.mem_write(tp, time.as_slice())?;
         Ok(0)
     }
 }

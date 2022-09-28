@@ -11,7 +11,7 @@ use crate::{
 };
 use log::{info, trace};
 use num_traits::Zero;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet},
@@ -154,7 +154,7 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
             {
                 let readset = readset.clone();
                 let writeset = writeset.clone();
-                move |uc, mem_type, addr, size, value| {
+                move |_uc, mem_type, addr, size, _value| {
                     match mem_type {
                         MemType::WRITE => {
                             writeset.borrow_mut().insert((addr, size));

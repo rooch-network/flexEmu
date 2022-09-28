@@ -173,7 +173,7 @@ impl ElfLoader {
             uc.sp()?
         };
         let randdata_addr = {
-            Stack::aligned_push_bytes(uc, &[10u8; 16], None)?;
+            Stack::aligned_push_bytes(uc, [10u8; 16], None)?;
             uc.sp()?
         };
         let cpustr_addr = {
