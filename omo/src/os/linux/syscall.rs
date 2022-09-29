@@ -53,6 +53,11 @@ pub enum SysCalls {
     GETTIMEOFDAY,
     CLOCK_GETTIME,
     EXIT,
+    MUNMAP,
+    MPROTECT,
+    MREMAP,
+    MMAP2,
+    MADVISE,
 }
 
 impl SysCalls {

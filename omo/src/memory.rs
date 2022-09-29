@@ -36,6 +36,8 @@ pub trait Memory {
     }
     fn mem_map(&mut self, region: MemRegion, info: Option<String>) -> Result<(), uc_error>;
     fn mem_unmap(&mut self, addr: u64, size: usize) -> Result<(), uc_error>;
+    fn is_mapped(&self, addr: u64, size: usize) -> Result<bool, uc_error>;
+    fn mprotect(&mut self, addr: u64, size: usize, perm: Permission) -> Result<(), uc_error>;
     fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, uc_error>;
     fn read_ptr(&self, address: u64, pointersize: Option<PointerSizeT>) -> Result<u64, uc_error>;
 
@@ -78,6 +80,14 @@ impl<'a, A> Memory for Unicorn<'a, Machine<A>> {
     fn mem_unmap(&mut self, addr: u64, size: usize) -> Result<(), uc_error> {
         // TODO: manage map_info
         Unicorn::mem_unmap(self, addr, size)
+    }
+    fn mprotect(&mut self, addr: u64, size: usize, perm: Permission) -> Result<(), uc_error> {
+        // TODO: manage map_info
+        Unicorn::mem_protect(self, addr, size, perm)
+    }
+    fn is_mapped(&self, _addr: u64, _size: usize) -> Result<bool, uc_error> {
+        // FIXME: impl it.
+        Ok(false)
     }
 
     fn read(&self, addr: u64, len: usize) -> Result<Vec<u8>, uc_error> {
