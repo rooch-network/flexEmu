@@ -12,12 +12,7 @@ use crate::{
 use log::{info, trace};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, BTreeSet},
-    ops::Deref,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 use unicorn_engine::unicorn_const::{HookType, MemType, Mode};
 
 pub struct Emulator<'a, A, Os> {

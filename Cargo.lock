@@ -143,6 +143,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethtrie-codec"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "keccak-hasher",
+ "memory-db",
+ "rlp",
+ "trie-db",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -340,24 +351,21 @@ dependencies = [
  "bytes",
  "clap",
  "env_logger",
+ "ethtrie-codec",
  "goblin",
  "hex",
- "hex-literal",
- "keccak-hasher",
  "lazy_static",
  "log",
  "map-macro",
  "maplit",
  "memory-db",
  "num-traits",
- "rlp",
  "serde",
  "serde_json",
  "strum",
  "thiserror",
  "toml",
  "trie-db",
- "trie-root",
  "unicorn-engine",
 ]
 
@@ -711,15 +719,6 @@ dependencies = [
  "log",
  "rustc-hex",
  "smallvec",
-]
-
-[[package]]
-name = "trie-root"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a36c5ca3911ed3c9a5416ee6c679042064b93fc637ded67e25f92e68d783891"
-dependencies = [
- "hash-db",
 ]
 
 [[package]]

@@ -27,11 +27,7 @@ num-traits = { version = "0.2.15" }
 hex = { version = "0.4.3", features=["serde"] }
 
 trie-db = { version = "0.24" }
-trie-root = { version = "0.17" }
-keccak-hasher = { version = "0.15" }
-
-rlp = { version = "0.5.1" }
+#keccak-hasher = { version = "0.15" }
 memory-db = { version = "0.30" }
 
-[dev-dependencies]
-hex-literal = { version = "0.3.4" }
+ethtrie-codec = {path="../crates/ethtrie-codec"}
