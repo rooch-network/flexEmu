@@ -31,9 +31,7 @@ lazy_static! {
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum SysCalls {
-    WRITE,
     GETPID,
-    _LLSEEK,
     SET_THREAD_AREA,
     SET_TID_ADDRESS,
     POLL,
@@ -58,6 +56,19 @@ pub enum SysCalls {
     MREMAP,
     MMAP2,
     MADVISE,
+    GETRLIMIT,
+
+    SYSINFO,
+    SET_ROBUST_LIST,
+    PRLIMIT64,
+
+    WRITE,
+    _LLSEEK,
+}
+
+pub struct RLimit {
+    pub cur: i64,
+    pub max: i64,
 }
 
 impl SysCalls {

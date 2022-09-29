@@ -5,6 +5,7 @@ use std::{
     rc::Rc,
     str::FromStr,
 };
+use num_traits::ToPrimitive;
 
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
@@ -18,7 +19,10 @@ use crate::{
     errors::EmulatorError,
     loader::LoadInfo,
     memory::Memory,
-    os::{linux::syscall::SysCalls, Runner},
+    os::{
+        linux::syscall::{RLimit, SysCalls},
+        Runner,
+    },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
     utils::{align, align_up, Packer},
@@ -224,6 +228,11 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
                 self.madivse(core, p0, p1, p2)?
+            }
+            SysCalls::GETRLIMIT => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.getrlimit(core, p0, p1)?
             }
 
             _ => {
@@ -536,9 +545,8 @@ impl Inner {
         tp: u64,
     ) -> Result<i64, uc_error> {
         log::debug!("clock_gettime: id {} tp: {}", clock_id, tp);
-
-        let time = [0u8; 8]; // on 32 bits platform, 32bits for sec, 32bits for nsec.
-        core.mem_write(tp, time.as_slice())?;
+        // on 32 bits platform, 32bits for sec, 32bits for nsec.
+        Memory::write(core, tp, vec![0u8; 8])?;
         Ok(0)
     }
     fn mmap2<'a, A: ArchT>(
@@ -684,6 +692,25 @@ impl Inner {
         _length: u64,
         _advice: u64,
     ) -> Result<i64, uc_error> {
+        Ok(0)
+    }
+    fn getrlimit<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        res: u64,
+        rlim: u64,
+    ) -> Result<i64, uc_error> {
+        let mut r0: i64 = -1;
+        let r1: i64 = -1;
+        if res == 3 {
+            // RLIMIT_STACK
+            r0 = 196608 // 192KiB
+        }
+
+        let rlimit = RLimit { cur: r0, max: r1 };
+
+        Memory::write_ptr(core, rlim, (&rlimit as *const RLimit) as u64, Some(core.pointer_size()))?;
+
         Ok(0)
     }
 }
