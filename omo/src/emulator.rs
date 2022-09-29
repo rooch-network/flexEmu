@@ -11,7 +11,7 @@ use crate::{
 };
 use log::{info, trace};
 use num_traits::Zero;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet},
@@ -152,7 +152,7 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
             u32::MAX as u64,
             {
                 let mem_access = mem_access_sequence.clone();
-                move |_uc, mem_type, addr, size, _value| {
+                move |_uc, mem_type, addr, size, value| {
                     match mem_type {
                         MemType::WRITE => {
                             mem_access.borrow_mut().push(MemAccess {
@@ -210,24 +210,24 @@ pub fn default_exitpoint(point_size: u8) -> u64 {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct EmulatorState {
     pub regs: RegisterState,
     pub memories: MemoryState,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct StateChange {
     pub state_before: EmulatorState,
     pub state_after: EmulatorState,
     pub step: u64,
     pub access: Vec<MemAccess>,
 }
-#[derive(Serialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct MemAccess {
     /// read or write
-    write: bool,
-    addr: u64,
-    size: usize,
-    value: i64,
+    pub write: bool,
+    pub addr: u64,
+    pub size: usize,
+    pub value: i64,
 }

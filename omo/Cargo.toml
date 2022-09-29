@@ -31,7 +31,7 @@ trie-root = { version = "0.17" }
 keccak-hasher = { version = "0.15" }
 
 rlp = { version = "0.5.1" }
+memory-db = { version = "0.30" }
 
 [dev-dependencies]
 hex-literal = { version = "0.3.4" }
-memory-db = { version = "0.30" }
