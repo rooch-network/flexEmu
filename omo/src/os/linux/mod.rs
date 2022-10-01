@@ -5,7 +5,6 @@ use std::{
     rc::Rc,
     str::FromStr,
 };
-use num_traits::ToPrimitive;
 
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
@@ -20,7 +19,7 @@ use crate::{
     loader::LoadInfo,
     memory::Memory,
     os::{
-        linux::syscall::{RLimit, SysCalls},
+        linux::syscall::{Rlimit, SysCalls, SysInfo},
         Runner,
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
@@ -685,6 +684,7 @@ impl Inner {
         Memory::mprotect(core, mmap_base, mmap_size as usize, perms)?;
         Ok(0)
     }
+
     fn madivse<'a, A: ArchT>(
         &mut self,
         _core: &mut Engine<'a, A>,
@@ -694,22 +694,43 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         Ok(0)
     }
+
     fn getrlimit<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
         res: u64,
         rlim: u64,
     ) -> Result<i64, uc_error> {
-        let mut r0: u32 = -1;
+        let mut r0: u32 = u32::MAX;
         if res == 3 {
             // RLIMIT_STACK
             r0 = 196608 // 192KiB
         }
+        let rlimit = Rlimit {
+            cur: r0,
+            max: u32::MAX,
+        };
+        Memory::write_ptr(
+            core,
+            rlim,
+            (&rlimit as *const Rlimit) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
 
-        let rlimit = RLimit { cur: r0, max: -1 };
-
-        Memory::write_ptr(core, rlim, (&rlimit as *const RLimit) as u64, Some(core.pointer_size()))?;
-
+    fn sysinfo<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        info: u64,
+    ) -> Result<i64, uc_error> {
+        let i: SysInfo = Default::default();
+        Memory::write_ptr(
+            core,
+            info,
+            (&i as *const SysInfo) as u64,
+            Some(core.pointer_size()),
+        )?;
         Ok(0)
     }
 }
