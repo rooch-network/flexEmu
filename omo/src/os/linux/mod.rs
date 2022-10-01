@@ -242,6 +242,13 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.set_robust_list(core, p0, p1)?
             }
+            SysCalls::PRLIMIT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 1, None)?;
+                let p3 = cc.get_raw_param(core, 1, None)?;
+                self.prlimit64(core, p0, p1, p2, p3)?
+            }
 
             _ => {
                 panic!("please handle syscall: {:?}", syscall);
@@ -713,15 +720,7 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         log::debug!("[getrlimit] res: {:#x}, rlim: {:#x}", res, rlim);
 
-        let mut r0: u32 = u32::MAX;
-        if res == 3 {
-            // RLIMIT_STACK
-            r0 = 196608 // 192KiB
-        }
-        let rlimit = Rlimit {
-            cur: r0,
-            max: u32::MAX,
-        };
+        let rlimit = get_rlimit(res);
         Memory::write_ptr(
             core,
             rlim,
@@ -755,9 +754,49 @@ impl Inner {
         _head_len: u64,
     ) -> Result<i64, uc_error> {
         log::warn!("not implemented, set_robust_list pc: {}", core.pc()?);
-
         Ok(0)
     }
+
+    fn prlimit64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        pid: u64,
+        res: u64,
+        new_limit: u64,
+        old_limit: u64,
+    ) -> Result<i64, uc_error> {
+        log::debug!(
+            "[prlimit64] pid: {:#x}, res: {:#x}, new_limit: {:#x}, old_limit: {:#x}",
+            pid,
+            res,
+            new_limit,
+            old_limit
+        );
+        if pid == 0 && new_limit == 0 {
+            let rlimit = get_rlimit(res);
+            Memory::write_ptr(
+                core,
+                old_limit,
+                (&rlimit as *const Rlimit) as u64,
+                Some(core.pointer_size()),
+            )?;
+            return Ok(0);
+        }
+        Ok(-1)
+    }
+}
+
+fn get_rlimit(res: u64) -> Rlimit {
+    let mut r0: u32 = u32::MAX;
+    if res == 3 {
+        // RLIMIT_STACK
+        r0 = 196608 // 192KiB
+    }
+    let rlimit = Rlimit {
+        cur: r0,
+        max: u32::MAX,
+    };
+    return rlimit;
 }
 
 const EBADF: u64 = 9;
