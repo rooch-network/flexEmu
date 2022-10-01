@@ -233,6 +233,15 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.getrlimit(core, p0, p1)?
             }
+            SysCalls::SYSINFO => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.sysinfo(core, p0)?
+            }
+            SysCalls::SET_ROBUST_LIST => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.set_robust_list(core, p0, p1)?
+            }
 
             _ => {
                 panic!("please handle syscall: {:?}", syscall);
@@ -687,11 +696,12 @@ impl Inner {
 
     fn madivse<'a, A: ArchT>(
         &mut self,
-        _core: &mut Engine<'a, A>,
+        core: &mut Engine<'a, A>,
         _addr: u64,
         _length: u64,
         _advice: u64,
     ) -> Result<i64, uc_error> {
+        log::warn!("not implemented, madvise pc: {}", core.pc()?);
         Ok(0)
     }
 
@@ -701,6 +711,8 @@ impl Inner {
         res: u64,
         rlim: u64,
     ) -> Result<i64, uc_error> {
+        log::debug!("[getrlimit] res: {:#x}, rlim: {:#x}", res, rlim);
+
         let mut r0: u32 = u32::MAX;
         if res == 3 {
             // RLIMIT_STACK
@@ -724,6 +736,8 @@ impl Inner {
         core: &mut Engine<'a, A>,
         info: u64,
     ) -> Result<i64, uc_error> {
+        log::debug!("[sysinfo] info: {:#x}", info);
+
         let i: SysInfo = Default::default();
         Memory::write_ptr(
             core,
@@ -731,6 +745,17 @@ impl Inner {
             (&i as *const SysInfo) as u64,
             Some(core.pointer_size()),
         )?;
+        Ok(0)
+    }
+
+    fn set_robust_list<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        _head_ptr: u64,
+        _head_len: u64,
+    ) -> Result<i64, uc_error> {
+        log::warn!("not implemented, set_robust_list pc: {}", core.pc()?);
+
         Ok(0)
     }
 }
