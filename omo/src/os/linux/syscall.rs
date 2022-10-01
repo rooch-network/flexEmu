@@ -67,8 +67,8 @@ pub enum SysCalls {
 }
 
 pub struct RLimit {
-    pub cur: i64,
-    pub max: i64,
+    pub cur: u32,
+    pub max: u32,
 }
 
 impl SysCalls {

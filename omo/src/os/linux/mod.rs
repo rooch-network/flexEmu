@@ -700,14 +700,13 @@ impl Inner {
         res: u64,
         rlim: u64,
     ) -> Result<i64, uc_error> {
-        let mut r0: i64 = -1;
-        let r1: i64 = -1;
+        let mut r0: u32 = -1;
         if res == 3 {
             // RLIMIT_STACK
             r0 = 196608 // 192KiB
         }
 
-        let rlimit = RLimit { cur: r0, max: r1 };
+        let rlimit = RLimit { cur: r0, max: -1 };
 
         Memory::write_ptr(core, rlim, (&rlimit as *const RLimit) as u64, Some(core.pointer_size()))?;
 
