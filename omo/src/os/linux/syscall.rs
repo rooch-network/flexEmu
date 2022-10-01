@@ -4,6 +4,50 @@ use std::collections::{BTreeMap, HashMap};
 use strum::{EnumString, EnumVariantNames};
 use unicorn_engine::unicorn_const::Arch;
 
+pub struct Rlimit {
+    pub cur: u32,
+    pub max: u32,
+}
+
+#[repr(C)]
+pub struct SysInfo {
+    pub uptime: i32,
+    pub loads: [u32; 3],
+    pub total_ram: u32,
+    pub free_ram: u32,
+    pub shared_ram: u32,
+    pub buffer_ram: u32,
+    pub total_swap: u32,
+    pub free_swap: u32,
+    pub procs: u16,
+    _padding0: u16,
+    pub total_high: u32,
+    pub free_high: u32,
+    pub mem_unit: u32,
+    _padding1: u64,
+}
+
+impl Default for SysInfo {
+    fn default() -> SysInfo {
+        SysInfo {
+            uptime: 1234,
+            loads: [2000, 2000, 2000],
+            total_ram: 10000000,
+            free_ram: 10000000,
+            shared_ram: 10000000,
+            buffer_ram: 0,
+            total_swap: 0,
+            free_swap: 0,
+            procs: 1,
+            _padding0: 0,
+            total_high: 0,
+            free_high: 0,
+            mem_unit: 0,
+            _padding1: 0,
+        }
+    }
+}
+
 const LINUX_SYSCALL_TABLE: &str = include_str!("linux_syscall_table.json");
 
 fn parse_syscall_table(data: &str) -> BTreeMap<u8, BTreeMap<u64, String>> {
@@ -31,9 +75,7 @@ lazy_static! {
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum SysCalls {
-    WRITE,
     GETPID,
-    _LLSEEK,
     SET_THREAD_AREA,
     SET_TID_ADDRESS,
     POLL,
@@ -58,6 +100,13 @@ pub enum SysCalls {
     MREMAP,
     MMAP2,
     MADVISE,
+    GETRLIMIT,
+    SYSINFO,
+    SET_ROBUST_LIST,
+    PRLIMIT64,
+
+    WRITE,
+    _LLSEEK,
 }
 
 impl SysCalls {

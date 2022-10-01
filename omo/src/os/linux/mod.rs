@@ -18,7 +18,10 @@ use crate::{
     errors::EmulatorError,
     loader::LoadInfo,
     memory::Memory,
-    os::{linux::syscall::SysCalls, Runner},
+    os::{
+        linux::syscall::{Rlimit, SysCalls, SysInfo},
+        Runner,
+    },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
     utils::{align, align_up, Packer},
@@ -224,6 +227,27 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
                 self.madivse(core, p0, p1, p2)?
+            }
+            SysCalls::GETRLIMIT => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.getrlimit(core, p0, p1)?
+            }
+            SysCalls::SYSINFO => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.sysinfo(core, p0)?
+            }
+            SysCalls::SET_ROBUST_LIST => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.set_robust_list(core, p0, p1)?
+            }
+            SysCalls::PRLIMIT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 1, None)?;
+                let p3 = cc.get_raw_param(core, 1, None)?;
+                self.prlimit64(core, p0, p1, p2, p3)?
             }
 
             _ => {
@@ -536,9 +560,8 @@ impl Inner {
         tp: u64,
     ) -> Result<i64, uc_error> {
         log::debug!("clock_gettime: id {} tp: {}", clock_id, tp);
-
-        let time = [0u8; 8]; // on 32 bits platform, 32bits for sec, 32bits for nsec.
-        core.mem_write(tp, time.as_slice())?;
+        // on 32 bits platform, 32bits for sec, 32bits for nsec.
+        Memory::write(core, tp, vec![0u8; 8])?;
         Ok(0)
     }
     fn mmap2<'a, A: ArchT>(
@@ -677,15 +700,103 @@ impl Inner {
         Memory::mprotect(core, mmap_base, mmap_size as usize, perms)?;
         Ok(0)
     }
+
     fn madivse<'a, A: ArchT>(
         &mut self,
-        _core: &mut Engine<'a, A>,
+        core: &mut Engine<'a, A>,
         _addr: u64,
         _length: u64,
         _advice: u64,
     ) -> Result<i64, uc_error> {
+        log::warn!("not implemented, madvise pc: {}", core.pc()?);
         Ok(0)
     }
+
+    fn getrlimit<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        res: u64,
+        rlim: u64,
+    ) -> Result<i64, uc_error> {
+        log::debug!("[getrlimit] res: {:#x}, rlim: {:#x}", res, rlim);
+
+        let rlimit = get_rlimit(res);
+        Memory::write_ptr(
+            core,
+            rlim,
+            (&rlimit as *const Rlimit) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+
+    fn sysinfo<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        info: u64,
+    ) -> Result<i64, uc_error> {
+        log::debug!("[sysinfo] info: {:#x}", info);
+
+        let i: SysInfo = Default::default();
+        Memory::write_ptr(
+            core,
+            info,
+            (&i as *const SysInfo) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+
+    fn set_robust_list<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        _head_ptr: u64,
+        _head_len: u64,
+    ) -> Result<i64, uc_error> {
+        log::warn!("not implemented, set_robust_list pc: {}", core.pc()?);
+        Ok(0)
+    }
+
+    fn prlimit64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        pid: u64,
+        res: u64,
+        new_limit: u64,
+        old_limit: u64,
+    ) -> Result<i64, uc_error> {
+        log::debug!(
+            "[prlimit64] pid: {:#x}, res: {:#x}, new_limit: {:#x}, old_limit: {:#x}",
+            pid,
+            res,
+            new_limit,
+            old_limit
+        );
+        if pid == 0 && new_limit == 0 {
+            let rlimit = get_rlimit(res);
+            Memory::write_ptr(
+                core,
+                old_limit,
+                (&rlimit as *const Rlimit) as u64,
+                Some(core.pointer_size()),
+            )?;
+            return Ok(0);
+        }
+        Ok(-1)
+    }
+}
+
+fn get_rlimit(res: u64) -> Rlimit {
+    let mut r0: u32 = u32::MAX;
+    if res == 3 {
+        // RLIMIT_STACK
+        r0 = 196608 // 192KiB
+    }
+    let rlimit = Rlimit {
+        cur: r0,
+        max: u32::MAX,
+    };
+    return rlimit;
 }
 
 const EBADF: u64 = 9;

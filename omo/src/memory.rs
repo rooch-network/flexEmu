@@ -81,13 +81,13 @@ impl<'a, A> Memory for Unicorn<'a, Machine<A>> {
         // TODO: manage map_info
         Unicorn::mem_unmap(self, addr, size)
     }
-    fn mprotect(&mut self, addr: u64, size: usize, perm: Permission) -> Result<(), uc_error> {
-        // TODO: manage map_info
-        Unicorn::mem_protect(self, addr, size, perm)
-    }
     fn is_mapped(&self, _addr: u64, _size: usize) -> Result<bool, uc_error> {
         // FIXME: impl it.
         Ok(false)
+    }
+    fn mprotect(&mut self, addr: u64, size: usize, perm: Permission) -> Result<(), uc_error> {
+        // TODO: manage map_info
+        Unicorn::mem_protect(self, addr, size, perm)
     }
 
     fn read(&self, addr: u64, len: usize) -> Result<Vec<u8>, uc_error> {
