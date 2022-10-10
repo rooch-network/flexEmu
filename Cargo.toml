@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "omo",
-    "rust-mips-example"
+    "rust-mips-example",
+    "crates/ethtrie-codec"
 ]

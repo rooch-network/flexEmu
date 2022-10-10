@@ -9,7 +9,6 @@ module omo::mips {
     use omo::memory::{Memory, read_reg, write_reg, read_reg_bits, write_reg_bits, read_memory, write_memory};
 
 
-    const REG_OFFSET: u64 = 0xc0000000;
     const REG_ZERO: u64 = 0;
     const REG_LR: u64 = 0x1f;
     const REG_PC: u64 = 0x20;

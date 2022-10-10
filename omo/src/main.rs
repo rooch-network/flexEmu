@@ -4,9 +4,10 @@ use log::{info, LevelFilter};
 use omo::{
     arch::mips::{MipsProfile, MIPS},
     config::OmoConfig,
-    emulator::Emulator,
+    emulator::{Emulator, StateChange},
     errors::EmulatorError,
     os::linux::LinuxRunner,
+    step_proof::generate_step_proof,
 };
 use std::{
     collections::HashMap,
@@ -47,6 +48,9 @@ enum SubCommands {
         /// save the states under output_dir.
         #[clap(short, long)]
         output_dir: Option<PathBuf>,
+    },
+    GenStepProof {
+        step_dir: PathBuf,
     },
 }
 
@@ -136,23 +140,50 @@ fn main() -> Result<(), EmulatorError> {
                     .write(true)
                     .create(true)
                     .truncate(true)
-                    .open(output_dir.join("readset.json"))
+                    .open(output_dir.join("mem_access.json"))
                     .unwrap(),
-                &state_change.readset,
+                &state_change.access,
             )
             .unwrap();
+        }
+        SubCommands::GenStepProof { step_dir } => {
+            let change = StateChange {
+                step: 0,
+                state_before: serde_json::from_reader(
+                    std::fs::File::options()
+                        .read(true)
+                        .open(step_dir.join("before_state.json"))
+                        .unwrap(),
+                )
+                .unwrap(),
+                state_after: serde_json::from_reader(
+                    std::fs::File::options()
+                        .read(true)
+                        .open(step_dir.join("after_state.json"))
+                        .unwrap(),
+                )
+                .unwrap(),
+                access: serde_json::from_reader(
+                    std::fs::File::options()
+                        .read(true)
+                        .open(step_dir.join("mem_access.json"))
+                        .unwrap(),
+                )
+                .unwrap(),
+            };
+            let step_proof = generate_step_proof(change);
             serde_json::to_writer_pretty(
                 std::fs::File::options()
                     .write(true)
                     .create(true)
                     .truncate(true)
-                    .open(output_dir.join("writeset.json"))
+                    .open(step_dir.join("step-proof.json"))
                     .unwrap(),
-                &state_change.writeset,
+                &step_proof,
             )
             .unwrap();
         }
-    }
+    };
     Ok(())
 }
 
