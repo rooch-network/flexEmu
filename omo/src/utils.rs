@@ -1,3 +1,4 @@
+use anyhow::Error;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use goblin::{
     container::Endian,
@@ -6,7 +7,12 @@ use goblin::{
 use num_traits::PrimInt;
 use std::fmt::Debug;
 
-use crate::memory::PointerSizeT;
+use crate::{
+    arch::ArchT,
+    engine::Engine,
+    errors::EmulatorError,
+    memory::{Memory, PointerSizeT},
+};
 use unicorn_engine::unicorn_const::Permission;
 
 /// Align a value down to the specified alignment boundary. If `value` is already
@@ -62,6 +68,32 @@ pub fn seg_perm_to_uc_prot(perm: u32) -> Permission {
 
     prot
 }
+
+pub fn read_string<'a, A: ArchT>(
+    core: &mut Engine<'a, A>,
+    address: u64,
+    terminator: &[u8],
+) -> Result<String, EmulatorError> {
+    let mut result: Vec<u8> = Vec::new();
+    let char_len = terminator.len();
+
+    let mut char = Memory::read(core, address, char_len)?;
+
+    let mut address = address;
+    let terminator = terminator.to_vec();
+    while char != terminator {
+        address += char_len as u64;
+        result.extend(char.clone());
+        char = Memory::read(core, address, char_len)?;
+    }
+    let result = match String::from_utf8(char) {
+        Ok(r) => r,
+        Err(e) => return Err(EmulatorError::Custom(Error::new(e))),
+    };
+
+    Ok(result)
+}
+
 pub struct Packer {
     endian: Endian,
     pointer_size: usize,
