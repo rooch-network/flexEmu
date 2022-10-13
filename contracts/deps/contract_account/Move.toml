@@ -1,0 +1,11 @@
+[package]
+name = "ContractAccount"
+version = "0.0.0"
+
+[dependencies]
+StarcoinFramework = {git = "https://github.com/starcoinorg/starcoin-framework.git", rev = "table_extension"}
+movefuns = {git = "https://github.com/movefuns/movefuns.git", rev= "master", subdir = "starcoin"}
+
+[addresses]
+std =  "0x1"
+ContractAddress = "0x123456"
