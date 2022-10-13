@@ -96,7 +96,7 @@ module omo::Challenge {
         *&g.globalStartState
     }
 
-    fun get_global_change_id(_signer: &signer): u64 acquires Global {
+    fun get_global_challenge_id(_signer: &signer): u64 acquires Global {
         let contract_signer = ContractAccount::get_contract_signer();
         let g = borrow_global<Global>(Signer::address_of(&contract_signer));
         *&g.lastChallengeId
@@ -170,7 +170,7 @@ module omo::Challenge {
         assert!(memory::read_memory(&mut mem, finalSystemState, 0x30000804) == vector_to_u64(hash_value::bytes(&assertionRoots)),
             ERR_MIPS_MACHINE_DIFFERENT_STATE_ROOT);
 
-        let challenge_id = get_global_change_id(signer);
+        let challenge_id = get_global_challenge_id(signer);
 
         set_challenge_challenger(challenge_id,
             Signer::address_of(signer),
