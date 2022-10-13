@@ -63,12 +63,6 @@ module omo::Challenge {
         r
     }
 
-    fun empty_address(): address {
-        let empty_vector = Vector::empty<u8>();
-        Vector::push_back(&mut empty_vector, 0);
-        to_address(empty_vector)
-    }
-
     public entry fun do_init(account: signer, start_state: HashValue) {
         Self::init(&account, start_state);
     }
@@ -193,7 +187,7 @@ module omo::Challenge {
         let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
-        assert!(c.challenger != empty_address(), ERR_INVALID_CHALLENGE);
+        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
         (c.L + 1 != c.R)
     }
@@ -203,7 +197,7 @@ module omo::Challenge {
         let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
-        assert!(c.challenger != empty_address(), ERR_INVALID_CHALLENGE);
+        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
         (c.L + c.R) / 2
     }
@@ -215,7 +209,7 @@ module omo::Challenge {
         let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
-        assert!(c.challenger != empty_address(), ERR_INVALID_CHALLENGE);
+        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
         let borrowed_state = Table::borrow(&c.asserted_state, step_number);
         *borrowed_state
@@ -231,7 +225,7 @@ module omo::Challenge {
         let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
-        assert!(c.challenger != empty_address(), ERR_INVALID_CHALLENGE);
+        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
         assert!(c.challenger == Signer::address_of(signer), ERR_MUST_BE_CHALLENGER);
 
         let state = Table::borrow(&c.asserted_state, step_number);
@@ -253,7 +247,7 @@ module omo::Challenge {
         let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
-        assert!(c.challenger != empty_address(), ERR_INVALID_CHALLENGE);
+        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
         assert!(c.challenger == Signer::address_of(signer), ERR_MUST_BE_CHALLENGER);
 
         let asserted_state = Table::borrow(&c.asserted_state, step_number);
@@ -284,7 +278,7 @@ module omo::Challenge {
         let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
-        assert!(c.challenger != empty_address(), ERR_INVALID_CHALLENGE);
+        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
         let asserted_state = Table::borrow(&c.asserted_state, c.L);
         let addr = Signer::address_of(&contract_signer);
@@ -303,7 +297,7 @@ module omo::Challenge {
         let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
-        assert!(c.challenger != empty_address(), ERR_INVALID_CHALLENGE);
+        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
         let defended_state = Table::borrow(&c.defended_state, c.L);
         let addr = Signer::address_of(&contract_signer);
