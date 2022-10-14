@@ -1,11 +1,16 @@
+use std::io;
+
 use thiserror::Error;
 use unicorn_engine::unicorn_const::uc_error;
+
 #[derive(Error, Debug)]
 pub enum EmulatorError {
     #[error("unicorn error {0:?}")]
     UcError(uc_error),
     #[error("loader error {0}")]
     LoaderError(#[from] goblin::error::Error),
+    #[error("io error {0}")]
+    IOError(#[from] io::Error),
     #[error("custom error {0}")]
     Custom(#[from] anyhow::Error),
 }
