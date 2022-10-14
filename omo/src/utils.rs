@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use anyhow::Error;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use goblin::{
@@ -5,7 +7,7 @@ use goblin::{
     elf::program_header::{PF_R, PF_W, PF_X},
 };
 use num_traits::PrimInt;
-use std::fmt::Debug;
+use unicorn_engine::unicorn_const::Permission;
 
 use crate::{
     arch::ArchT,
@@ -13,7 +15,6 @@ use crate::{
     errors::EmulatorError,
     memory::{Memory, PointerSizeT},
 };
-use unicorn_engine::unicorn_const::Permission;
 
 /// Align a value down to the specified alignment boundary. If `value` is already
 /// aligned, the same value is returned. Commonly used to determine the base address
