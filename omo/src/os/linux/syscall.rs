@@ -1,8 +1,37 @@
+use std::{
+    arch::asm,
+    collections::{BTreeMap, HashMap},
+};
+
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
 use strum::{EnumString, EnumVariantNames};
 use unicorn_engine::unicorn_const::Arch;
+
+// x86_64 syscall trap.
+#[repr(u64)]
+pub enum LinuxSysCalls {
+    Read = 0,
+    Write = 1,
+    Open = 2,
+    WriteV = 20,
+}
+
+// x86_64 raw syscall with three arguments.
+pub fn syscall_3(trap: u64, arg1: u64, arg2: u64, arg3: u64) -> i64 {
+    let res;
+    unsafe {
+        asm!(
+        "syscall",
+        in("rax") trap,
+        in("rdi") arg1,
+        in("rsi") arg2,
+        in("rdx") arg3,
+        lateout("rax") res,
+        );
+    }
+    res
+}
 
 pub struct Rlimit {
     pub cur: u32,
@@ -104,9 +133,26 @@ pub enum SysCalls {
     SYSINFO,
     SET_ROBUST_LIST,
     PRLIMIT64,
-
+    OPEN,
+    READ,
     WRITE,
+
+    WRITEV,
+
+    CLOSE,
+    LSEEK,
+    IOCTL,
+    FCNTL,
+    READLINK,
+    STAT,
+    FSTAT,
     _LLSEEK,
+    GETCWD,
+    STAT64,
+    LSTAT64,
+    FSTAT64,
+    FCNTL64,
+    FSTATAT64,
 }
 
 impl SysCalls {

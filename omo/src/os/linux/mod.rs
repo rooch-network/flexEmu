@@ -1,15 +1,11 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    io::{stderr, stdout, Write},
-    rc::Rc,
-    str::FromStr,
-};
+use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc, str::FromStr};
 
 use unicorn_engine::{
-    unicorn_const::{uc_error, Arch, MemRegion, Permission},
-    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
+    RegisterARM,
+    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
 };
+
+use file::{open, read, write};
 
 use crate::{
     arch::{ArchInfo, ArchT},
@@ -24,9 +20,10 @@ use crate::{
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, Packer},
+    utils::{align, align_up, Packer, read_string},
 };
 
+mod file;
 pub mod syscall;
 
 #[derive(Debug, Default)]
@@ -145,14 +142,6 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.brk(core, p0)?
             }
-            SysCalls::WRITE => {
-                // {"fd": 1, "buf": 4599872, "count": 12}
-                let p0 = cc.get_raw_param(core, 0, None)?;
-                let p1 = cc.get_raw_param(core, 1, None)?;
-                let p2 = cc.get_raw_param(core, 2, None)?;
-
-                self.write(core, p0, p1, p2)?
-            }
             SysCalls::EXIT_GROUP => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.exit_group(core, p0)?
@@ -248,6 +237,27 @@ impl Inner {
                 let p2 = cc.get_raw_param(core, 1, None)?;
                 let p3 = cc.get_raw_param(core, 1, None)?;
                 self.prlimit64(core, p0, p1, p2, p3)?
+            }
+            SysCalls::OPEN => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+
+                self.open(core, p0, p1, p2)?
+            }
+            SysCalls::READ => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+
+                self.read(core, p0, p1, p2)?
+            }
+            SysCalls::WRITE => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+
+                self.write(core, p0, p1, p2)?
             }
 
             _ => {
@@ -445,35 +455,6 @@ impl Inner {
         }
         Ok(self.brk_address as i64)
     }
-
-    fn write<'a, A: ArchT>(
-        &mut self,
-        core: &mut Engine<'a, A>,
-        fd: u64,
-        buf: u64,
-        count: u64,
-    ) -> Result<i64, uc_error> {
-        log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
-        const NR_OPEN: u64 = 1024;
-        if fd > NR_OPEN {
-            return Ok(-(EBADF as i64));
-        }
-        let data = match Memory::read(core, buf, count as usize) {
-            Ok(d) => d,
-            Err(_e) => {
-                return Ok(-1);
-            }
-        };
-        if fd == 1 {
-            stdout().write_all(data.as_slice()).unwrap();
-        } else if fd == 2 {
-            stderr().write_all(data.as_slice()).unwrap();
-        } else {
-            return Ok(-1);
-        }
-
-        Ok(count as i64)
-    }
     fn exit_group<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
@@ -500,12 +481,7 @@ impl Inner {
                 n,
                 &RAND_SOURCE[0..n as usize]
             );
-            match Memory::write(core, buf, &RAND_SOURCE[0..n as usize]) {
-                Err(_e) => {
-                    return Ok(-1);
-                }
-                _ => {}
-            };
+            Memory::write(core, buf, &RAND_SOURCE[0..n as usize])?;
             left -= n;
         }
 
@@ -782,7 +758,45 @@ impl Inner {
             )?;
             return Ok(0);
         }
+
         Ok(-1)
+    }
+    fn open<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        filename: u64,
+        flags: u64,
+        mode: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, filename, b"\x00")?;
+        log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
+        let fd = open(path.as_str(), flags, mode)?;
+        Ok(fd)
+    }
+    fn write<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        buf: u64,
+        count: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
+        let data = Memory::read(core, buf, count as usize)?;
+        let size = write(fd, data.as_ptr() as usize as u64, count)?;
+        Ok(size)
+    }
+    fn read<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        buf: u64,
+        len: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("read({}, {}, {}) pc: {}", fd, buf, len, core.pc()?);
+        let host_buf = vec![0 as u8; len as usize];
+        let size = read(fd, host_buf.as_ptr() as usize as u64, len)?;
+        Memory::write(core, buf, host_buf)?;
+        Ok(size)
     }
 }
 

@@ -11,15 +11,12 @@ pub mod config;
 pub mod emulator;
 pub mod engine;
 pub mod errors;
-mod file;
 pub mod loader;
 pub mod memory;
 pub mod os;
-pub mod path;
 pub mod rand;
 pub mod registers;
 pub mod stack;
-mod syscall;
 pub mod utils;
 
 pub const PAGE_SIZE: u32 = 0x1000;
