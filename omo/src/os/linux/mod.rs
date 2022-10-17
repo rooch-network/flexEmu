@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc, str::FromStr};
 
 use unicorn_engine::{
-    unicorn_const::{uc_error, Arch, MemRegion, Permission},
-    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
+    RegisterARM,
+    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
 };
 
 use file::{open, read, write};
@@ -16,14 +16,14 @@ use crate::{
     memory::Memory,
     os::{
         linux::{
-            file::close,
+            file::{close, lseek},
             syscall::{Rlimit, SysCalls, SysInfo},
         },
         Runner,
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, read_string, Packer},
+    utils::{align, align_up, Packer, read_string},
 };
 
 mod file;
@@ -262,6 +262,12 @@ impl Inner {
             SysCalls::CLOSE => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.close(core, p0)?
+            }
+            SysCalls::LSEEK => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.lseek(core, p0, p1, p2)?
             }
 
             _ => {
@@ -804,10 +810,21 @@ impl Inner {
     }
     fn close<'a, A: ArchT>(
         &mut self,
-        _core: &mut Engine<'a, A>,
+        core: &mut Engine<'a, A>,
         fd: u64,
     ) -> Result<i64, EmulatorError> {
+        log::debug!("close({}) pc: {}", fd, core.pc()?);
         Ok(close(fd)?)
+    }
+    fn lseek<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        offset: u64,
+        whence: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("lseek({}, {}, {}) pc: {}", fd, offset, whence, core.pc()?);
+        Ok(lseek(fd, offset, whence)?)
     }
 }
 

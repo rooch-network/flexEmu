@@ -15,6 +15,7 @@ pub enum LinuxSysCalls {
     Write = 1,
     Open = 2,
     Close = 3,
+    LSeek = 8,
     WriteV = 20,
 }
 
@@ -151,10 +152,10 @@ pub enum SysCalls {
     READ,
     WRITE,
     CLOSE,
+    LSEEK,
 
     WRITEV,
 
-    LSEEK,
     IOCTL,
     FCNTL,
     READLINK,
