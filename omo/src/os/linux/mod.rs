@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc, str::FromStr};
 
 use unicorn_engine::{
-    RegisterARM,
-    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
+    unicorn_const::{uc_error, Arch, MemRegion, Permission},
+    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
 
 use file::{open, read, write};
@@ -15,12 +15,15 @@ use crate::{
     loader::LoadInfo,
     memory::Memory,
     os::{
-        linux::syscall::{Rlimit, SysCalls, SysInfo},
+        linux::{
+            file::close,
+            syscall::{Rlimit, SysCalls, SysInfo},
+        },
         Runner,
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, Packer, read_string},
+    utils::{align, align_up, read_string, Packer},
 };
 
 mod file;
@@ -242,22 +245,23 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
-
                 self.open(core, p0, p1, p2)?
             }
             SysCalls::READ => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
-
                 self.read(core, p0, p1, p2)?
             }
             SysCalls::WRITE => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
-
                 self.write(core, p0, p1, p2)?
+            }
+            SysCalls::CLOSE => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.close(core, p0)?
             }
 
             _ => {
@@ -797,6 +801,13 @@ impl Inner {
         let size = read(fd, host_buf.as_ptr() as usize as u64, len)?;
         Memory::write(core, buf, host_buf)?;
         Ok(size)
+    }
+    fn close<'a, A: ArchT>(
+        &mut self,
+        _core: &mut Engine<'a, A>,
+        fd: u64,
+    ) -> Result<i64, EmulatorError> {
+        Ok(close(fd)?)
     }
 }
 

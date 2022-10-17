@@ -14,10 +14,11 @@ pub enum LinuxSysCalls {
     Read = 0,
     Write = 1,
     Open = 2,
+    Close = 3,
     WriteV = 20,
 }
 
-// x86_64 raw syscall with three arguments.
+// x86_64 raw syscall.
 pub fn syscall_3(trap: u64, arg1: u64, arg2: u64, arg3: u64) -> i64 {
     let res;
     unsafe {
@@ -27,6 +28,19 @@ pub fn syscall_3(trap: u64, arg1: u64, arg2: u64, arg3: u64) -> i64 {
         in("rdi") arg1,
         in("rsi") arg2,
         in("rdx") arg3,
+        lateout("rax") res,
+        );
+    }
+    res
+}
+
+pub fn syscall_1(trap: u64, arg1: u64) -> i64 {
+    let res;
+    unsafe {
+        asm!(
+        "syscall",
+        in("rax") trap,
+        in("rdi") arg1,
         lateout("rax") res,
         );
     }
@@ -136,10 +150,10 @@ pub enum SysCalls {
     OPEN,
     READ,
     WRITE,
+    CLOSE,
 
     WRITEV,
 
-    CLOSE,
     LSEEK,
     IOCTL,
     FCNTL,

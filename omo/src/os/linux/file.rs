@@ -1,4 +1,8 @@
-use std::io;
+use std::{
+    fs::{read_to_string, File},
+    io,
+    slice::RSplit,
+};
 
 use crate::{errors::EmulatorError, os::linux::syscall::*};
 
@@ -32,6 +36,15 @@ pub fn write(fd: u64, data: u64, len: u64) -> Result<i64, EmulatorError> {
         Err(EmulatorError::IOError(io::Error::last_os_error()))
     } else {
         Ok(size)
+    }
+}
+
+pub fn close(fd: u64) -> Result<i64, EmulatorError> {
+    let ret = syscall_1(LinuxSysCalls::Close as u64, fd);
+    if ret == -1 {
+        Err(EmulatorError::IOError(io::Error::last_os_error()))
+    } else {
+        Ok(ret)
     }
 }
 
