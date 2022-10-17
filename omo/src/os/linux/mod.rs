@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc, str::FromStr};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 
 use unicorn_engine::{
     RegisterARM,
@@ -780,8 +780,13 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, filename, b"\x00")?;
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
-        let fd = open(path.as_str(), flags, mode)?;
-        Ok(fd)
+        let fd = return match open(path.as_str(), flags, mode) {
+            Ok(fd) => Ok(fd),
+            Err(e) => {
+                log::warn!("failed to open ({}, {}, {}) pc: {:?}", path, flags, mode, e);
+                Ok(-1)
+            }
+        };
     }
     fn write<'a, A: ArchT>(
         &mut self,
@@ -792,8 +797,13 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
-        let size = write(fd, data.as_ptr() as usize as u64, count)?;
-        Ok(size)
+        let size = return match write(fd, data.as_ptr() as usize as u64, count) {
+            Ok(size) => Ok(size),
+            Err(e) => {
+                log::warn!("failed to write ({}, {}, {}) pc: {:?}", fd, buf, count, e);
+                Ok(-1)
+            }
+        };
     }
     fn read<'a, A: ArchT>(
         &mut self,
@@ -803,8 +813,14 @@ impl Inner {
         len: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("read({}, {}, {}) pc: {}", fd, buf, len, core.pc()?);
-        let host_buf = vec![0 as u8; len as usize];
-        let size = read(fd, host_buf.as_ptr() as usize as u64, len)?;
+        let host_buf = vec![0_u8; len as usize];
+        let size = match read(fd, host_buf.as_ptr() as usize as u64, len) {
+            Ok(size) => size,
+            Err(e) => {
+                log::warn!("failed to read ({}, {}, {}) pc: {:?}", fd, buf, len, e);
+                return Ok(-1);
+            }
+        };
         Memory::write(core, buf, host_buf)?;
         Ok(size)
     }
@@ -814,7 +830,13 @@ impl Inner {
         fd: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("close({}) pc: {}", fd, core.pc()?);
-        Ok(close(fd)?)
+        let ret = return match close(fd) {
+            Err(e) => {
+                log::warn!("failed to close ({}) pc: {:?}", fd, e);
+                Ok(-1)
+            }
+            _ => Ok(0)
+        };
     }
     fn lseek<'a, A: ArchT>(
         &mut self,
@@ -824,7 +846,13 @@ impl Inner {
         whence: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("lseek({}, {}, {}) pc: {}", fd, offset, whence, core.pc()?);
-        Ok(lseek(fd, offset, whence)?)
+        let off = return match lseek(fd, offset, whence) {
+            Ok(off) => Ok(off),
+            Err(e) => {
+                log::warn!("failed to lseek ({} {} {}) pc: {:?}", fd, offset, whence, e);
+                Ok(-1)
+            }
+        };
     }
 }
 
