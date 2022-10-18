@@ -8,7 +8,6 @@ module omo::Challenge {
     use omo::memory;
     use omo::mips_emulator;
     use ContractAddress::ContractAccount;
-    use StarcoinFramework::BCS::to_address;
     use trie::hash_value::HashValue;
     use trie::hash_value;
     use StarcoinFramework::Event::emit_event;
@@ -67,41 +66,36 @@ module omo::Challenge {
         Self::init(&account, start_state);
     }
 
-    public fun init(_signer: &signer, global_start_sate: HashValue) {
-        ContractAccount::init_contract_account();
-        let contract_signer = ContractAccount::get_contract_signer();
-
+    public fun init(signer: &signer, global_start_sate: HashValue) {
         let g = Global {
             globalStartState: global_start_sate,
             lastChallengeId: 0,
         };
-        move_to(&contract_signer, g);
+        move_to(signer, g);
 
         let challenges = Challenges{value: Vector::empty()};
-        move_to(&contract_signer, challenges);
+        move_to(signer, challenges);
 
         // initial memory
-        memory::create(&contract_signer);
+        memory::create(signer);
     }
 
-    fun get_gloal_start_state(_signer: &signer): HashValue acquires Global {
-        let contract_signer = ContractAccount::get_contract_signer();
-        let g = borrow_global<Global>(Signer::address_of(&contract_signer));
+    fun get_gloal_start_state(signer: &signer): HashValue acquires Global {
+        let g = borrow_global<Global>(Signer::address_of(signer));
         *&g.globalStartState
     }
 
-    fun get_global_challenge_id(_signer: &signer): u64 acquires Global {
-        let contract_signer = ContractAccount::get_contract_signer();
-        let g = borrow_global<Global>(Signer::address_of(&contract_signer));
+
+    fun get_global_change_id(signer: &signer): u64 acquires Global {
+        let g = borrow_global<Global>(Signer::address_of(signer));
         *&g.lastChallengeId
     }
 
-    fun set_challenge_challenger(change_id: u64, challenger: address,
+    fun set_challenge_challenger(signer: &signer, change_id: u64, challenger: address,
                                  block_n_hash: HashValue, asserted_state: HashValue, defended_state: HashValue,
                                  final_step_count: u64, final_system_state: HashValue, l: u64, r: u64)
     acquires Challenges {
-        let contract_signer = ContractAccount::get_contract_signer();
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
+        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
         let c = Vector::borrow_mut(&mut challenges.value, change_id);
 
         c.challenger = challenger;
@@ -166,7 +160,7 @@ module omo::Challenge {
 
         let challenge_id = get_global_challenge_id(signer);
 
-        set_challenge_challenger(challenge_id,
+        set_challenge_challenger(signer, challenge_id,
             Signer::address_of(signer),
             blockNumberN_hash,
             copy start_state,
