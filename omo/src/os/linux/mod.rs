@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 
 use unicorn_engine::{
-    RegisterARM,
-    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
+    unicorn_const::{uc_error, Arch, MemRegion, Permission},
+    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
 
 use file::{open, read, write};
@@ -16,14 +16,14 @@ use crate::{
     memory::Memory,
     os::{
         linux::{
-            file::{close, fcntl, lseek},
+            file::{close, fcntl, lseek, readlink},
             syscall::{Rlimit, SysCalls, SysInfo},
         },
         Runner,
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, Packer, read_string},
+    utils::{align, align_up, read_string, Packer},
 };
 
 mod file;
@@ -268,6 +268,18 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
                 self.lseek(core, p0, p1, p2)?
+            }
+            SysCalls::FCNTL => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.fcntl(core, p0, p1, p2)?
+            }
+            SysCalls::READLINK => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.readlink(core, p0, p1, p2)?
             }
 
             _ => {
@@ -862,13 +874,45 @@ impl Inner {
         arg: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("fcntl({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
-        let off = return match fcntl(fd, cmd, arg) {
-            Ok(off) => Ok(off),
+        let ret = return match fcntl(fd, cmd, arg) {
+            Ok(ret) => Ok(ret),
             Err(e) => {
                 log::warn!("failed to fcntl ({} {} {}) pc: {:?}", fd, cmd, arg, e);
                 Ok(-1)
             }
         };
+    }
+    fn readlink<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        path_name: u64,
+        buf: u64,
+        buf_size: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!(
+            "readlink({}, {}, {}) pc: {}",
+            path,
+            buf,
+            buf_size,
+            core.pc()?
+        );
+        let host_buf = vec![0_u8; buf_size as usize];
+        let size = match readlink(path.as_str(), host_buf.as_ptr() as u64, buf_size) {
+            Ok(size) => size,
+            Err(e) => {
+                log::debug!(
+                    "failed to readlink({}, {}, {}) pc: {}",
+                    path,
+                    buf,
+                    buf_size,
+                    core.pc()?
+                );
+                return Ok(-1);
+            }
+        };
+        Memory::write(core, buf, host_buf)?;
+        Ok(size)
     }
 }
 
