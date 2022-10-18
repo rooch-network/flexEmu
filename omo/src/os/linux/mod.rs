@@ -16,7 +16,7 @@ use crate::{
     memory::Memory,
     os::{
         linux::{
-            file::{close, lseek},
+            file::{close, fcntl, lseek},
             syscall::{Rlimit, SysCalls, SysInfo},
         },
         Runner,
@@ -835,7 +835,7 @@ impl Inner {
                 log::warn!("failed to close ({}) pc: {:?}", fd, e);
                 Ok(-1)
             }
-            _ => Ok(0)
+            _ => Ok(0),
         };
     }
     fn lseek<'a, A: ArchT>(
@@ -850,6 +850,22 @@ impl Inner {
             Ok(off) => Ok(off),
             Err(e) => {
                 log::warn!("failed to lseek ({} {} {}) pc: {:?}", fd, offset, whence, e);
+                Ok(-1)
+            }
+        };
+    }
+    fn fcntl<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        cmd: u64,
+        arg: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fcntl({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
+        let off = return match fcntl(fd, cmd, arg) {
+            Ok(off) => Ok(off),
+            Err(e) => {
+                log::warn!("failed to fcntl ({} {} {}) pc: {:?}", fd, cmd, arg, e);
                 Ok(-1)
             }
         };

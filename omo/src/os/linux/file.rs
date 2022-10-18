@@ -45,11 +45,20 @@ pub fn close(fd: u64) -> Result<i64, EmulatorError> {
 }
 
 pub fn lseek(fd: u64, offset: u64, whence: u64) -> Result<i64, EmulatorError> {
-    let off = syscall_3(LinuxSysCalls::LSeek as u64, fd, offset, whence);
+    let off = syscall_3(LinuxSysCalls::Lseek as u64, fd, offset, whence);
     if off == -1 {
         Err(EmulatorError::IOError(io::Error::last_os_error()))
     } else {
         Ok(off)
+    }
+}
+
+pub fn fcntl(fd: u64, cmd: u64, arg: u64) -> Result<i64, EmulatorError> {
+    let ret = syscall_3(LinuxSysCalls::Fcntl as u64, fd, cmd, arg);
+    if ret == -1 {
+        Err(EmulatorError::IOError(io::Error::last_os_error()))
+    } else {
+        Ok(ret)
     }
 }
 
