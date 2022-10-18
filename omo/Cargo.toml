@@ -31,3 +31,5 @@ trie-db = { version = "0.24" }
 memory-db = { version = "0.30" }
 
 ethtrie-codec = {path="../crates/ethtrie-codec"}
+rlp = { version = "0.5.1" }
+hex-buffer-serde = { version = "0.3.0" }
