@@ -85,8 +85,7 @@ module omo::Challenge {
         *&g.globalStartState
     }
 
-
-    fun get_global_change_id(signer: &signer): u64 acquires Global {
+    fun get_global_challenge_id(signer: &signer): u64 acquires Global {
         let g = borrow_global<Global>(Signer::address_of(signer));
         *&g.lastChallengeId
     }
@@ -237,8 +236,7 @@ module omo::Challenge {
         assert!(is_searching(challenge_id), ERR_MUST_BE_SEARCHING);
         let step_number = get_step_number(challenge_id);
 
-        let contract_signer = ContractAccount::get_contract_signer();
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
+        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
@@ -265,17 +263,16 @@ module omo::Challenge {
         }
     }
 
-    public fun confirm_state_transition(challenge_id: u64) acquires Challenges {
+    public fun confirm_state_transition(signer: &signer, challenge_id: u64) acquires Challenges {
         assert!(!is_searching(challenge_id), ERR_BINARY_SEARCH_NOT_FINISHED);
 
-        let contract_signer = ContractAccount::get_contract_signer();
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
+        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
         let asserted_state = Table::borrow(&c.asserted_state, c.L);
-        let addr = Signer::address_of(&contract_signer);
+        let addr = Signer::address_of(signer);
         let step_state = mips_emulator::run(addr, hash_value::to_bytes(*asserted_state));
 
         let right_asserted_state = Table::borrow(&c.asserted_state, c.R);
@@ -284,17 +281,16 @@ module omo::Challenge {
         // TODO: emit challenge wins event
     }
 
-    public fun deny_state_transition(challenge_id: u64) acquires Challenges {
+    public fun deny_state_transition(signer: &signer, challenge_id: u64) acquires Challenges {
         assert!(!is_searching(challenge_id), ERR_BINARY_SEARCH_NOT_FINISHED);
 
-        let contract_signer = ContractAccount::get_contract_signer();
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(&contract_signer));
+        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
         let defended_state = Table::borrow(&c.defended_state, c.L);
-        let addr = Signer::address_of(&contract_signer);
+        let addr = Signer::address_of(signer);
         let step_state = mips_emulator::run(addr, hash_value::to_bytes(*defended_state));
 
         let right_defended_state = Table::borrow(&c.defended_state, c.R);
