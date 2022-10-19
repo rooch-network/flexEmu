@@ -19,6 +19,7 @@ pub enum LinuxSysCalls {
     Fstat = 5,
     Lstat = 6,
     Lseek = 8,
+    Ioctl = 16,
     WriteV = 20,
     Fcntl = 72,
     Readlink = 89,
@@ -322,10 +323,9 @@ pub enum SysCalls {
     LSTAT64,
     FSTATAT64,
     GETCWD,
+    IOCTL,
 
     WRITEV,
-
-    IOCTL,
 }
 
 impl SysCalls {

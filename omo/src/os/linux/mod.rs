@@ -11,7 +11,7 @@ use std::{
 };
 
 use unicorn_engine::{
-    unicorn_const::{uc_error, Arch, MemRegion, Permission},
+    unicorn_const::{uc_error, uc_error::OK, Arch, MemRegion, Permission},
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
 
@@ -26,7 +26,7 @@ use crate::{
     memory::Memory,
     os::{
         linux::{
-            file::{close, fcntl, fstat, fstatat64, lseek, lstat, readlink, stat},
+            file::{close, fcntl, fstat, fstatat64, ioctl, lseek, lstat, readlink, stat},
             syscall::{Rlimit, Stat64MIPS, StatMIPS, StatX8664, SysCalls, SysInfoMIPS},
         },
         Runner,
@@ -341,6 +341,12 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.getcwd(core, p0, p1)?
+            }
+            SysCalls::IOCTL => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 1, None)?;
+                self.ioctl(core, p0, p1, p2)?
             }
 
             _ => {
@@ -903,7 +909,7 @@ impl Inner {
         fd: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("close({}) pc: {}", fd, core.pc()?);
-        let ret = return match close(fd) {
+        return match close(fd) {
             Err(e) => {
                 log::warn!("failed to close ({}): {:?}", fd, e);
                 Ok(-1)
@@ -919,7 +925,7 @@ impl Inner {
         whence: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("lseek({}, {}, {}) pc: {}", fd, offset, whence, core.pc()?);
-        let off = return match lseek(fd, offset, whence) {
+        return match lseek(fd, offset, whence) {
             Ok(off) => Ok(off),
             Err(e) => {
                 log::warn!("failed to lseek ({} {} {}): {:?}", fd, offset, whence, e);
@@ -978,7 +984,7 @@ impl Inner {
         arg: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("fcntl({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
-        let ret = return match fcntl(fd, cmd, arg) {
+        return match fcntl(fd, cmd, arg) {
             Ok(ret) => Ok(ret),
             Err(e) => {
                 log::warn!("failed to fcntl ({} {} {}): {:?}", fd, cmd, arg, e);
@@ -994,7 +1000,7 @@ impl Inner {
         arg: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("fcntl64({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
-        let ret = return match fcntl(fd, cmd, arg) {
+        return match fcntl(fd, cmd, arg) {
             Ok(ret) => Ok(ret),
             Err(e) => {
                 log::warn!("failed to fcntl64 ({} {} {}): {:?}", fd, cmd, arg, e);
@@ -1205,13 +1211,29 @@ impl Inner {
         log::debug!("getcwd ({}, {}) pc: {}", buf, size, core.pc()?);
         let dir = match env::current_dir() {
             Err(e) => {
-                log::debug!("failed to getcwd({}, {}): {:?}", buf, size, e);
+                log::debug!("failed to getcwd ({}, {}): {:?}", buf, size, e);
                 return Ok(-1);
             }
             Ok(d) => d,
         };
         Memory::write(core, buf, dir.as_os_str().as_bytes().to_vec())?;
         Ok(0)
+    }
+    fn ioctl<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        cmd: u64,
+        arg: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("ioctl ({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
+        return match ioctl(fd, cmd, arg) {
+            Err(e) => {
+                log::debug!("failed to ioctl ({}, {}, {}): {:?}", fd, cmd, arg, e);
+                Ok(-1)
+            }
+            Ok(r) => Ok(r),
+        };
     }
 }
 
