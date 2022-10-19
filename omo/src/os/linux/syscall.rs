@@ -70,6 +70,9 @@ pub struct Rlimit {
     pub max: u32,
 }
 
+pub type dev_t = u64;
+pub type ino_t = u64;
+
 #[repr(C)]
 pub struct StatMIPS {
     pub st_dev: u32,
@@ -117,6 +120,55 @@ impl Default for StatMIPS {
             st_blksize: 0,
             st_blocks: 0,
             st_pad4: [0; 14],
+        }
+    }
+}
+
+#[repr(C)]
+pub struct Stat64MIPS {
+    pub st_dev: u32,
+    st_pad0: [i32; 3],
+    pub st_ino: u64,
+    pub st_mode: u32,
+    pub st_nlink: u32,
+    pub st_uid: u32,
+    pub st_gid: u32,
+    pub st_rdev: u32,
+    st_pad1: [u32; 3],
+    pub st_size: u64,
+    pub st_atime: i32,
+    pub st_atime_ns: u32,
+    pub st_mtime: u32,
+    pub st_mtime_ns: u32,
+    pub st_ctime: u32,
+    pub st_ctime_ns: u32,
+    pub st_blksize: u32,
+    st_pad2: u32,
+    pub st_blocks: i64,
+}
+
+impl Default for Stat64MIPS {
+    fn default() -> Stat64MIPS {
+        Stat64MIPS {
+            st_dev: 0,
+            st_pad0: [0; 3],
+            st_ino: 0,
+            st_mode: 0,
+            st_nlink: 0,
+            st_uid: 0,
+            st_gid: 0,
+            st_rdev: 0,
+            st_pad1: [0; 3],
+            st_size: 0,
+            st_pad2: 0,
+            st_atime: 0,
+            st_atime_ns: 0,
+            st_mtime: 0,
+            st_mtime_ns: 0,
+            st_ctime: 0,
+            st_ctime_ns: 0,
+            st_blksize: 0,
+            st_blocks: 0,
         }
     }
 }
