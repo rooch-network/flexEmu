@@ -20,7 +20,6 @@ pub enum LinuxSysCalls {
     Lstat = 6,
     Lseek = 8,
     Ioctl = 16,
-    WriteV = 20,
     Fcntl = 72,
     Readlink = 89,
     Newfstatat = 262,
@@ -273,7 +272,7 @@ lazy_static! {
 
 #[allow(non_camel_case_types)]
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames, EnumString,
+Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames, EnumString,
 )]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
@@ -324,7 +323,6 @@ pub enum SysCalls {
     FSTATAT64,
     GETCWD,
     IOCTL,
-
     WRITEV,
 }
 

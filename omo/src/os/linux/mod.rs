@@ -1,9 +1,7 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
-    env, fs,
-    fs::{read_to_string, File},
-    io::Read,
+    env,
     mem,
     os::unix::ffi::OsStrExt,
     rc::Rc,
@@ -11,8 +9,8 @@ use std::{
 };
 
 use unicorn_engine::{
-    unicorn_const::{uc_error, uc_error::OK, Arch, MemRegion, Permission},
-    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
+    RegisterARM,
+    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
 };
 
 use file::{open, read, write};
@@ -33,7 +31,7 @@ use crate::{
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, read_string, Packer},
+    utils::{align, align_up, Packer, read_string},
 };
 
 mod file;
@@ -268,6 +266,12 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
                 self.write(core, p0, p1, p2)?
+            }
+            SysCalls::WRITEV => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.writev(core, p0, p1, p2)?
             }
             SysCalls::CLOSE => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
@@ -859,7 +863,7 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, filename, b"\x00")?;
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
-        let fd = return match open(path.as_str(), flags, mode) {
+        return match open(path.as_str(), flags, mode) {
             Ok(fd) => Ok(fd),
             Err(e) => {
                 log::warn!("failed to open ({}, {}, {}): {:?}", path, flags, mode, e);
@@ -876,13 +880,44 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
-        let size = return match write(fd, data.as_ptr() as usize as u64, count) {
+        return match write(fd, data.as_ptr() as usize as u64, count) {
             Ok(size) => Ok(size),
             Err(e) => {
                 log::warn!("failed to write ({}, {}, {}): {:?}", fd, buf, count, e);
                 Ok(-1)
             }
         };
+    }
+    fn writev<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        vec: u64,
+        vlen: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("writev({}, {}, {}) pc: {}", fd, vec, vlen, core.pc()?);
+        let mut ret: i64 = 0;
+        let size_t_len = core.pointer_size() as u64;
+        let iov = Memory::read(core, vec, (vlen * size_t_len * 2) as usize)?;
+        let packer = Packer::new(core.endian(), core.pointer_size());
+        let mut i = 0;
+        while i < vlen {
+            let addr_origin = &iov[(i * size_t_len * 2) as usize..(i * size_t_len * 2 + size_t_len) as usize];
+            let addr = packer.unpack(addr_origin.to_vec());
+            let l_origin = &iov[(i * size_t_len * 2 + size_t_len) as usize..(i * size_t_len * 2 + size_t_len * 2) as usize];
+            let l = packer.unpack(l_origin.to_vec());
+            ret += l as i64;
+            let buf = Memory::read(core, addr, l as usize)?;
+            match write(fd, buf.as_ptr() as usize as u64, l) {
+                Err(e) => {
+                    log::warn!("failed to writev ({}, {}, {}): {:?}", fd, vec, vlen, e);
+                    return Ok(-1);
+                }
+                _ => {}
+            };
+            i += 1;
+        }
+        return Ok(ret);
     }
     fn read<'a, A: ArchT>(
         &mut self,
@@ -1238,25 +1273,25 @@ impl Inner {
 }
 
 fn get_stat(path: &str) -> Result<StatX8664, EmulatorError> {
-    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
     stat(path, (&host_buf as *const StatX8664) as u64)?;
     Ok(host_buf)
 }
 
 fn get_fstat(fd: u64) -> Result<StatX8664, EmulatorError> {
-    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
     fstat(fd, (&host_buf as *const StatX8664) as u64)?;
     Ok(host_buf)
 }
 
 fn get_lstat(path: &str) -> Result<StatX8664, EmulatorError> {
-    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
     lstat(path, (&host_buf as *const StatX8664) as u64)?;
     Ok(host_buf)
 }
 
 fn get_fstatat64(dir_fd: u64, path: &str, flags: u64) -> Result<StatX8664, EmulatorError> {
-    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
     fstatat64(dir_fd, path, (&host_buf as *const StatX8664) as u64, flags)?;
     Ok(host_buf)
 }

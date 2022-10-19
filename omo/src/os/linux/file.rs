@@ -127,11 +127,3 @@ pub fn ioctl(fd: u64, cmd: u64, arg: u64) -> Result<i64, EmulatorError> {
     }
 }
 
-pub fn writev(fd: u64, iovec: u64, vlen: u64) -> Result<i64, EmulatorError> {
-    let size = syscall_3(LinuxSysCalls::WriteV as u64, fd, iovec, vlen);
-    if size == -1 {
-        Err(EmulatorError::IOError(io::Error::last_os_error()))
-    } else {
-        Ok(size)
-    }
-}
