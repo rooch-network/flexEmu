@@ -16,6 +16,7 @@ pub enum LinuxSysCalls {
     Open = 2,
     Close = 3,
     Stat = 4,
+    Fstat = 5,
     Lseek = 8,
     Fcntl = 72,
     Readlink = 89,
@@ -299,15 +300,15 @@ pub enum SysCalls {
     READLINK,
     STAT,
     _LLSEEK,
+    STAT64,
+    FSTAT,
+    FSTAT64,
 
     WRITEV,
 
     IOCTL,
-    FSTAT,
     GETCWD,
-    STAT64,
     LSTAT64,
-    FSTAT64,
     FCNTL64,
     FSTATAT64,
 }

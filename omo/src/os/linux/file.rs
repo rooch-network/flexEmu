@@ -85,6 +85,15 @@ pub fn stat(path: &str, stat_buf: u64) -> Result<i64, EmulatorError> {
     }
 }
 
+pub fn fstat(fd: u64, stat_buf: u64) -> Result<i64, EmulatorError> {
+    let ret = syscall_2(LinuxSysCalls::Fstat as u64, fd, stat_buf);
+    if ret == -1 {
+        Err(EmulatorError::IOError(io::Error::last_os_error()))
+    } else {
+        Ok(ret)
+    }
+}
+
 pub fn writev(fd: u64, iovec: u64, vlen: u64) -> Result<i64, EmulatorError> {
     let size = syscall_3(LinuxSysCalls::WriteV as u64, fd, iovec, vlen);
     if size == -1 {

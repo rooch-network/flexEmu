@@ -24,7 +24,7 @@ use crate::{
     memory::Memory,
     os::{
         linux::{
-            file::{close, fcntl, lseek, readlink, stat},
+            file::{close, fcntl, fstat, lseek, readlink, stat},
             syscall::{Rlimit, Stat64MIPS, StatMIPS, StatX8664, SysCalls, SysInfoMIPS},
         },
         Runner,
@@ -306,6 +306,16 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.stat64(core, p0, p1)?
+            }
+            SysCalls::FSTAT => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.fstat(core, p0, p1)?
+            }
+            SysCalls::FSTAT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.fstat64(core, p0, p1)?
             }
 
             _ => {
@@ -1037,11 +1047,69 @@ impl Inner {
         )?;
         Ok(0)
     }
+    fn fstat<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fstat ({}, {}) pc: {}", fd, stat_buf, core.pc()?);
+        let host_buf = match get_fstat(fd) {
+            Err(e) => {
+                log::debug!("failed to fstat({}, {}): {:?}", fd, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = StatMIPS::default();
+        stat.st_ino = host_buf.st_ino as u32;
+        stat.st_size = host_buf.st_size as u32;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const StatMIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn fstat64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fstat64 ({}, {}) pc: {}", fd, stat_buf, core.pc()?);
+        let host_buf = match get_fstat(fd) {
+            Err(e) => {
+                log::debug!("failed to fstat64 ({}, {}): {:?}", fd, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = Stat64MIPS::default();
+        stat.st_ino = host_buf.st_ino;
+        stat.st_size = host_buf.st_size as u64;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const Stat64MIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
 }
 
 fn get_stat(path: &str) -> Result<StatX8664, EmulatorError> {
     let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
     stat(path, (&host_buf as *const StatX8664) as u64)?;
+    Ok(host_buf)
+}
+
+fn get_fstat(fd: u64) -> Result<StatX8664, EmulatorError> {
+    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    fstat(fd, (&host_buf as *const StatX8664) as u64)?;
     Ok(host_buf)
 }
 
