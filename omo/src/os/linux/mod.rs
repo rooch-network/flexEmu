@@ -1,4 +1,12 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fs,
+    fs::{read_to_string, File},
+    mem,
+    rc::Rc,
+    str::FromStr,
+};
 
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
@@ -16,8 +24,8 @@ use crate::{
     memory::Memory,
     os::{
         linux::{
-            file::{close, fcntl, lseek, readlink},
-            syscall::{Rlimit, SysCalls, SysInfo},
+            file::{close, fcntl, lseek, readlink, stat},
+            syscall::{Rlimit, StatMIPS, StatX8664, SysCalls, SysInfoMIPS},
         },
         Runner,
     },
@@ -269,6 +277,14 @@ impl Inner {
                 let p2 = cc.get_raw_param(core, 2, None)?;
                 self.lseek(core, p0, p1, p2)?
             }
+            SysCalls::_LLSEEK => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 2, None)?;
+                let p4 = cc.get_raw_param(core, 2, None)?;
+                self._llseek(core, p0, p1, p2, p3, p4)?
+            }
             SysCalls::FCNTL => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
@@ -280,6 +296,11 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
                 self.readlink(core, p0, p1, p2)?
+            }
+            SysCalls::STAT => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.stat(core, p0, p1)?
             }
 
             _ => {
@@ -735,11 +756,11 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         log::debug!("[sysinfo] info: {:#x}", info);
 
-        let i: SysInfo = Default::default();
+        let i: SysInfoMIPS = Default::default();
         Memory::write_ptr(
             core,
             info,
-            (&i as *const SysInfo) as u64,
+            (&i as *const SysInfoMIPS) as u64,
             Some(core.pointer_size()),
         )?;
         Ok(0)
@@ -795,7 +816,7 @@ impl Inner {
         let fd = return match open(path.as_str(), flags, mode) {
             Ok(fd) => Ok(fd),
             Err(e) => {
-                log::warn!("failed to open ({}, {}, {}) pc: {:?}", path, flags, mode, e);
+                log::warn!("failed to open ({}, {}, {}): {:?}", path, flags, mode, e);
                 Ok(-1)
             }
         };
@@ -812,7 +833,7 @@ impl Inner {
         let size = return match write(fd, data.as_ptr() as usize as u64, count) {
             Ok(size) => Ok(size),
             Err(e) => {
-                log::warn!("failed to write ({}, {}, {}) pc: {:?}", fd, buf, count, e);
+                log::warn!("failed to write ({}, {}, {}): {:?}", fd, buf, count, e);
                 Ok(-1)
             }
         };
@@ -829,7 +850,7 @@ impl Inner {
         let size = match read(fd, host_buf.as_ptr() as usize as u64, len) {
             Ok(size) => size,
             Err(e) => {
-                log::warn!("failed to read ({}, {}, {}) pc: {:?}", fd, buf, len, e);
+                log::warn!("failed to read ({}, {}, {}): {:?}", fd, buf, len, e);
                 return Ok(-1);
             }
         };
@@ -844,7 +865,7 @@ impl Inner {
         log::debug!("close({}) pc: {}", fd, core.pc()?);
         let ret = return match close(fd) {
             Err(e) => {
-                log::warn!("failed to close ({}) pc: {:?}", fd, e);
+                log::warn!("failed to close ({}): {:?}", fd, e);
                 Ok(-1)
             }
             _ => Ok(0),
@@ -861,10 +882,53 @@ impl Inner {
         let off = return match lseek(fd, offset, whence) {
             Ok(off) => Ok(off),
             Err(e) => {
-                log::warn!("failed to lseek ({} {} {}) pc: {:?}", fd, offset, whence, e);
+                log::warn!("failed to lseek ({} {} {}): {:?}", fd, offset, whence, e);
                 Ok(-1)
             }
         };
+    }
+    fn _llseek<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        offset_high: u64,
+        offset_low: u64,
+        result: u64,
+        whence: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!(
+            "_llseek({}, {}, {}, {}, {}) pc: {}",
+            fd,
+            offset_high,
+            offset_low,
+            result,
+            whence,
+            core.pc()?
+        );
+        let offset = offset_high << 32 | offset_low;
+        let origin = whence;
+        let ret = match lseek(fd, offset, origin) {
+            Err(e) => {
+                log::warn!(
+                    "failed to _llseek ({} {} {} {} {}): {:?}",
+                    fd,
+                    offset_high,
+                    offset_low,
+                    result,
+                    whence,
+                    e
+                );
+                return Ok(-1);
+            }
+            Ok(ret) => ret,
+        };
+        Memory::write_ptr(
+            core,
+            result,
+            (&ret as *const i64) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
     }
     fn fcntl<'a, A: ArchT>(
         &mut self,
@@ -877,7 +941,7 @@ impl Inner {
         let ret = return match fcntl(fd, cmd, arg) {
             Ok(ret) => Ok(ret),
             Err(e) => {
-                log::warn!("failed to fcntl ({} {} {}) pc: {:?}", fd, cmd, arg, e);
+                log::warn!("failed to fcntl ({} {} {}): {:?}", fd, cmd, arg, e);
                 Ok(-1)
             }
         };
@@ -902,17 +966,45 @@ impl Inner {
             Ok(size) => size,
             Err(e) => {
                 log::debug!(
-                    "failed to readlink({}, {}, {}) pc: {}",
+                    "failed to readlink({}, {}, {}): {:?}",
                     path,
                     buf,
                     buf_size,
-                    core.pc()?
+                    e
                 );
                 return Ok(-1);
             }
         };
         Memory::write(core, buf, host_buf)?;
         Ok(size)
+    }
+    fn stat<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        path_name: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!("stat ({}, {}) pc: {}", path, stat_buf, core.pc()?);
+        let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+        match stat(path.as_str(), (&host_buf as *const StatX8664) as u64) {
+            Err(e) => {
+                log::debug!("failed to stat({}, {}): {:?}", path, stat_buf, e);
+                return Ok(-1);
+            }
+            _ => {}
+        };
+        let mut stat = StatMIPS::default();
+        stat.st_ino = host_buf.st_ino as u32;
+        stat.st_size = host_buf.st_size as u32;
+
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const StatMIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
     }
 }
 

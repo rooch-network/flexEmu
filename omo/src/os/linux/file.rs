@@ -76,6 +76,15 @@ pub fn readlink(path: &str, buf: u64, buf_size: u64) -> Result<i64, EmulatorErro
     }
 }
 
+pub fn stat(path: &str, stat_buf: u64) -> Result<i64, EmulatorError> {
+    let ret = syscall_2(LinuxSysCalls::Stat as u64, path.as_ptr() as u64, stat_buf);
+    if ret == -1 {
+        Err(EmulatorError::IOError(io::Error::last_os_error()))
+    } else {
+        Ok(ret)
+    }
+}
+
 pub fn writev(fd: u64, iovec: u64, vlen: u64) -> Result<i64, EmulatorError> {
     let size = syscall_3(LinuxSysCalls::WriteV as u64, fd, iovec, vlen);
     if size == -1 {
