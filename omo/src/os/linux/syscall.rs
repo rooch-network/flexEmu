@@ -321,11 +321,11 @@ pub enum SysCalls {
     FCNTL64,
     LSTAT64,
     FSTATAT64,
+    GETCWD,
 
     WRITEV,
 
     IOCTL,
-    GETCWD,
 }
 
 impl SysCalls {

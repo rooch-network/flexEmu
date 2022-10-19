@@ -1,9 +1,11 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
-    fs,
+    env, fs,
     fs::{read_to_string, File},
+    io::Read,
     mem,
+    os::unix::ffi::OsStrExt,
     rc::Rc,
     str::FromStr,
 };
@@ -334,6 +336,11 @@ impl Inner {
                 let p2 = cc.get_raw_param(core, 0, None)?;
                 let p3 = cc.get_raw_param(core, 1, None)?;
                 self.fstatat64(core, p0, p1, p2, p3)?
+            }
+            SysCalls::GETCWD => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.getcwd(core, p0, p1)?
             }
 
             _ => {
@@ -1172,7 +1179,7 @@ impl Inner {
         log::debug!("fstatat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
         let host_buf = match get_fstatat64(dir_fd, path.as_str(), flags) {
             Err(e) => {
-                log::debug!("fstatat64 to stat64({}, {}): {:?}", path, stat_buf, e);
+                log::debug!("failed to fstatat64({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
             }
             Ok(h) => h,
@@ -1187,6 +1194,23 @@ impl Inner {
             (&stat as *const Stat64MIPS) as u64,
             Some(core.pointer_size()),
         )?;
+        Ok(0)
+    }
+    fn getcwd<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        buf: u64,
+        size: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("getcwd ({}, {}) pc: {}", buf, size, core.pc()?);
+        let dir = match env::current_dir() {
+            Err(e) => {
+                log::debug!("failed to getcwd({}, {}): {:?}", buf, size, e);
+                return Ok(-1);
+            }
+            Ok(d) => d,
+        };
+        Memory::write(core, buf, dir.as_os_str().as_bytes().to_vec())?;
         Ok(0)
     }
 }
