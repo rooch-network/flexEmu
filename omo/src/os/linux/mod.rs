@@ -863,13 +863,13 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, filename, b"\x00")?;
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
-        return match open(path.as_str(), flags, mode) {
+        match open(path.as_str(), flags, mode) {
             Ok(fd) => Ok(fd),
             Err(e) => {
                 log::warn!("failed to open ({}, {}, {}): {:?}", path, flags, mode, e);
                 Ok(-1)
             }
-        };
+        }
     }
     fn write<'a, A: ArchT>(
         &mut self,
@@ -880,13 +880,13 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
-        return match write(fd, data.as_ptr() as usize as u64, count) {
+        match write(fd, data.as_ptr() as usize as u64, count) {
             Ok(size) => Ok(size),
             Err(e) => {
                 log::warn!("failed to write ({}, {}, {}): {:?}", fd, buf, count, e);
                 Ok(-1)
             }
-        };
+        }
     }
     fn writev<'a, A: ArchT>(
         &mut self,
@@ -908,16 +908,13 @@ impl Inner {
             let l = packer.unpack(l_origin.to_vec());
             ret += l as i64;
             let buf = Memory::read(core, addr, l as usize)?;
-            match write(fd, buf.as_ptr() as usize as u64, l) {
-                Err(e) => {
-                    log::warn!("failed to writev ({}, {}, {}): {:?}", fd, vec, vlen, e);
-                    return Ok(-1);
-                }
-                _ => {}
+            if let Err(e) = write(fd, buf.as_ptr() as usize as u64, l) {
+                log::warn!("failed to writev ({}, {}, {}): {:?}", fd, vec, vlen, e);
+                return Ok(-1);
             };
             i += 1;
         }
-        return Ok(ret);
+        Ok(ret)
     }
     fn read<'a, A: ArchT>(
         &mut self,
@@ -944,13 +941,13 @@ impl Inner {
         fd: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("close({}) pc: {}", fd, core.pc()?);
-        return match close(fd) {
+        match close(fd) {
             Err(e) => {
                 log::warn!("failed to close ({}): {:?}", fd, e);
                 Ok(-1)
             }
             _ => Ok(0),
-        };
+        }
     }
     fn lseek<'a, A: ArchT>(
         &mut self,
@@ -960,13 +957,13 @@ impl Inner {
         whence: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("lseek({}, {}, {}) pc: {}", fd, offset, whence, core.pc()?);
-        return match lseek(fd, offset, whence) {
+        match lseek(fd, offset, whence) {
             Ok(off) => Ok(off),
             Err(e) => {
                 log::warn!("failed to lseek ({} {} {}): {:?}", fd, offset, whence, e);
                 Ok(-1)
             }
-        };
+        }
     }
     fn _llseek<'a, A: ArchT>(
         &mut self,
@@ -1019,13 +1016,13 @@ impl Inner {
         arg: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("fcntl({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
-        return match fcntl(fd, cmd, arg) {
+        match fcntl(fd, cmd, arg) {
             Ok(ret) => Ok(ret),
             Err(e) => {
                 log::warn!("failed to fcntl ({} {} {}): {:?}", fd, cmd, arg, e);
                 Ok(-1)
             }
-        };
+        }
     }
     fn fcntl64<'a, A: ArchT>(
         &mut self,
@@ -1035,13 +1032,13 @@ impl Inner {
         arg: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("fcntl64({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
-        return match fcntl(fd, cmd, arg) {
+        match fcntl(fd, cmd, arg) {
             Ok(ret) => Ok(ret),
             Err(e) => {
                 log::warn!("failed to fcntl64 ({} {} {}): {:?}", fd, cmd, arg, e);
                 Ok(-1)
             }
-        };
+        }
     }
     fn readlink<'a, A: ArchT>(
         &mut self,
@@ -1251,7 +1248,7 @@ impl Inner {
             }
             Ok(d) => d,
         };
-        Memory::write(core, buf, dir.as_os_str().as_bytes().to_vec())?;
+        Memory::write(core, buf, dir.as_os_str().as_bytes())?;
         Ok(0)
     }
     fn ioctl<'a, A: ArchT>(
@@ -1262,13 +1259,13 @@ impl Inner {
         arg: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("ioctl ({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
-        return match ioctl(fd, cmd, arg) {
+        match ioctl(fd, cmd, arg) {
             Err(e) => {
                 log::debug!("failed to ioctl ({}, {}, {}): {:?}", fd, cmd, arg, e);
                 Ok(-1)
             }
             Ok(r) => Ok(r),
-        };
+        }
     }
 }
 
@@ -1302,11 +1299,10 @@ fn get_rlimit(res: u64) -> Rlimit {
         // RLIMIT_STACK
         r0 = 196608 // 192KiB
     }
-    let rlimit = Rlimit {
+    Rlimit {
         cur: r0,
         max: u32::MAX,
-    };
-    return rlimit;
+    }
 }
 
 const EBADF: u64 = 9;
