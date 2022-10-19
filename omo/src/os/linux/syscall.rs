@@ -72,9 +72,6 @@ pub struct Rlimit {
     pub max: u32,
 }
 
-pub type dev_t = u64;
-pub type ino_t = u64;
-
 #[repr(C)]
 pub struct StatMIPS {
     pub st_dev: u32,
@@ -304,13 +301,13 @@ pub enum SysCalls {
     STAT64,
     FSTAT,
     FSTAT64,
+    FCNTL64,
+    LSTAT64,
 
     WRITEV,
 
     IOCTL,
     GETCWD,
-    LSTAT64,
-    FCNTL64,
     FSTATAT64,
 }
 

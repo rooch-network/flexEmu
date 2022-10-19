@@ -2,15 +2,15 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     fs,
-    fs::{read_to_string, File},
+    fs::{File, read_to_string},
     mem,
     rc::Rc,
     str::FromStr,
 };
 
 use unicorn_engine::{
-    unicorn_const::{uc_error, Arch, MemRegion, Permission},
-    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
+    RegisterARM,
+    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
 };
 
 use file::{open, read, write};
@@ -31,7 +31,7 @@ use crate::{
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, read_string, Packer},
+    utils::{align, align_up, Packer, read_string},
 };
 
 mod file;
@@ -290,6 +290,12 @@ impl Inner {
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
                 self.fcntl(core, p0, p1, p2)?
+            }
+            SysCalls::FCNTL64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.fcntl64(core, p0, p1, p2)?
             }
             SysCalls::READLINK => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
@@ -962,6 +968,22 @@ impl Inner {
             Ok(ret) => Ok(ret),
             Err(e) => {
                 log::warn!("failed to fcntl ({} {} {}): {:?}", fd, cmd, arg, e);
+                Ok(-1)
+            }
+        };
+    }
+    fn fcntl64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        cmd: u64,
+        arg: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fcntl64({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
+        let ret = return match fcntl(fd, cmd, arg) {
+            Ok(ret) => Ok(ret),
+            Err(e) => {
+                log::warn!("failed to fcntl64 ({} {} {}): {:?}", fd, cmd, arg, e);
                 Ok(-1)
             }
         };
