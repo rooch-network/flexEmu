@@ -19,21 +19,20 @@ pub enum LinuxSysCalls {
     Fstat = 5,
     Lstat = 6,
     Lseek = 8,
+    WriteV = 20,
     Fcntl = 72,
     Readlink = 89,
-    WriteV = 20,
+    Newfstatat = 262,
 }
 
 // x86_64 raw syscall.
-pub fn syscall_3(trap: u64, arg1: u64, arg2: u64, arg3: u64) -> i64 {
+pub fn syscall_1(trap: u64, arg1: u64) -> i64 {
     let res;
     unsafe {
         asm!(
         "syscall",
         in("rax") trap,
         in("rdi") arg1,
-        in("rsi") arg2,
-        in("rdx") arg3,
         lateout("rax") res,
         );
     }
@@ -54,13 +53,31 @@ pub fn syscall_2(trap: u64, arg1: u64, arg2: u64) -> i64 {
     res
 }
 
-pub fn syscall_1(trap: u64, arg1: u64) -> i64 {
+pub fn syscall_3(trap: u64, arg1: u64, arg2: u64, arg3: u64) -> i64 {
     let res;
     unsafe {
         asm!(
         "syscall",
         in("rax") trap,
         in("rdi") arg1,
+        in("rsi") arg2,
+        in("rdx") arg3,
+        lateout("rax") res,
+        );
+    }
+    res
+}
+
+pub fn syscall_4(trap: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64) -> i64 {
+    let res;
+    unsafe {
+        asm!(
+        "syscall",
+        in("rax") trap,
+        in("rdi") arg1,
+        in("rsi") arg2,
+        in("rdx") arg3,
+        in("r10") arg4,
         lateout("rax") res,
         );
     }
@@ -303,12 +320,12 @@ pub enum SysCalls {
     FSTAT64,
     FCNTL64,
     LSTAT64,
+    FSTATAT64,
 
     WRITEV,
 
     IOCTL,
     GETCWD,
-    FSTATAT64,
 }
 
 impl SysCalls {

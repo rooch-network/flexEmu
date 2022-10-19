@@ -103,6 +103,21 @@ pub fn lstat(path: &str, stat_buf: u64) -> Result<i64, EmulatorError> {
     }
 }
 
+pub fn fstatat64(dir_fd: u64, path: &str, stat_buf: u64, flags: u64) -> Result<i64, EmulatorError> {
+    let ret = syscall_4(
+        LinuxSysCalls::Newfstatat as u64,
+        dir_fd,
+        path.as_ptr() as u64,
+        stat_buf,
+        flags,
+    );
+    if ret == -1 {
+        Err(EmulatorError::IOError(io::Error::last_os_error()))
+    } else {
+        Ok(ret)
+    }
+}
+
 pub fn writev(fd: u64, iovec: u64, vlen: u64) -> Result<i64, EmulatorError> {
     let size = syscall_3(LinuxSysCalls::WriteV as u64, fd, iovec, vlen);
     if size == -1 {

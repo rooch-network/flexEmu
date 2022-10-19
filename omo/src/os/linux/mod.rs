@@ -2,15 +2,15 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     fs,
-    fs::{File, read_to_string},
+    fs::{read_to_string, File},
     mem,
     rc::Rc,
     str::FromStr,
 };
 
 use unicorn_engine::{
-    RegisterARM,
-    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
+    unicorn_const::{uc_error, Arch, MemRegion, Permission},
+    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
 
 use file::{open, read, write};
@@ -24,14 +24,14 @@ use crate::{
     memory::Memory,
     os::{
         linux::{
-            file::{close, fcntl, fstat, lseek, lstat, readlink, stat},
+            file::{close, fcntl, fstat, fstatat64, lseek, lstat, readlink, stat},
             syscall::{Rlimit, Stat64MIPS, StatMIPS, StatX8664, SysCalls, SysInfoMIPS},
         },
         Runner,
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, Packer, read_string},
+    utils::{align, align_up, read_string, Packer},
 };
 
 mod file;
@@ -327,6 +327,13 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 self.lstat64(core, p0, p1)?
+            }
+            SysCalls::FSTATAT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 0, None)?;
+                let p3 = cc.get_raw_param(core, 1, None)?;
+                self.fstatat64(core, p0, p1, p2, p3)?
             }
 
             _ => {
@@ -1153,6 +1160,35 @@ impl Inner {
         )?;
         Ok(0)
     }
+    fn fstatat64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        dir_fd: u64,
+        path_name: u64,
+        stat_buf: u64,
+        flags: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!("fstatat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
+        let host_buf = match get_fstatat64(dir_fd, path.as_str(), flags) {
+            Err(e) => {
+                log::debug!("fstatat64 to stat64({}, {}): {:?}", path, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = Stat64MIPS::default();
+        stat.st_ino = host_buf.st_ino;
+        stat.st_size = host_buf.st_size as u64;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const Stat64MIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
 }
 
 fn get_stat(path: &str) -> Result<StatX8664, EmulatorError> {
@@ -1170,6 +1206,12 @@ fn get_fstat(fd: u64) -> Result<StatX8664, EmulatorError> {
 fn get_lstat(path: &str) -> Result<StatX8664, EmulatorError> {
     let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
     lstat(path, (&host_buf as *const StatX8664) as u64)?;
+    Ok(host_buf)
+}
+
+fn get_fstatat64(dir_fd: u64, path: &str, flags: u64) -> Result<StatX8664, EmulatorError> {
+    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    fstatat64(dir_fd, path, (&host_buf as *const StatX8664) as u64, flags)?;
     Ok(host_buf)
 }
 
