@@ -33,6 +33,10 @@ module omo::memory {
              data: Option::extract(&mut borrow_global_mut<MemoryStorage>(memory_addr).data)
          }
     }
+    public fun borrow_db_mut(mem: &mut Memory): &mut trie::TrieDB {
+        &mut mem.data
+    }
+
     public fun return_mem(mem: Memory)
     acquires MemoryStorage {
         let Memory {data, storage_handle} = mem;
