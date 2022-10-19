@@ -17,6 +17,7 @@ pub enum LinuxSysCalls {
     Close = 3,
     Stat = 4,
     Fstat = 5,
+    Lstat = 6,
     Lseek = 8,
     Fcntl = 72,
     Readlink = 89,
