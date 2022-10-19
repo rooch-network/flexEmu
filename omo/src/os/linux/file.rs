@@ -126,4 +126,3 @@ pub fn ioctl(fd: u64, cmd: u64, arg: u64) -> Result<i64, EmulatorError> {
         Ok(ret)
     }
 }
-

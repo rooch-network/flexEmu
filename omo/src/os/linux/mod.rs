@@ -1,16 +1,10 @@
 use std::{
-    cell::RefCell,
-    collections::HashMap,
-    env,
-    mem,
-    os::unix::ffi::OsStrExt,
-    rc::Rc,
-    str::FromStr,
+    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
 };
 
 use unicorn_engine::{
-    RegisterARM,
-    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
+    unicorn_const::{uc_error, Arch, MemRegion, Permission},
+    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
 
 use file::{open, read, write};
@@ -31,7 +25,7 @@ use crate::{
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, Packer, read_string},
+    utils::{align, align_up, read_string, Packer},
 };
 
 mod file;
@@ -902,9 +896,11 @@ impl Inner {
         let packer = Packer::new(core.endian(), core.pointer_size());
         let mut i = 0;
         while i < vlen {
-            let addr_origin = &iov[(i * size_t_len * 2) as usize..(i * size_t_len * 2 + size_t_len) as usize];
+            let addr_origin =
+                &iov[(i * size_t_len * 2) as usize..(i * size_t_len * 2 + size_t_len) as usize];
             let addr = packer.unpack(addr_origin.to_vec());
-            let l_origin = &iov[(i * size_t_len * 2 + size_t_len) as usize..(i * size_t_len * 2 + size_t_len * 2) as usize];
+            let l_origin = &iov[(i * size_t_len * 2 + size_t_len) as usize
+                ..(i * size_t_len * 2 + size_t_len * 2) as usize];
             let l = packer.unpack(l_origin.to_vec());
             ret += l as i64;
             let buf = Memory::read(core, addr, l as usize)?;
