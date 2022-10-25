@@ -87,9 +87,6 @@ module omo::memory {
 
     /// Read memory in four-bytes and convert it to u32 as big-endian representation.
     public fun read_memory(mem: &Memory, state_hash: HashValue, addr: u64): u64 {
-        StarcoinFramework::Debug::print(&state_hash);
-        StarcoinFramework::Debug::print(&addr);
-
         assert!(addr & 3 == 0, Errors::invalid_argument(MEM_ACCESS_MUTST_BE_ALIGNED_TO_4BYTES));
         let key = to_be_bytes(addr >> 2);
         let v = trie::get(&mem.data, state_hash, &key);
@@ -106,14 +103,6 @@ module omo::memory {
     /// Write a u32 `value` as big-endian representation to memory addr start from `addr`
     public fun write_memory(mem: &mut Memory, state_hash: HashValue, addr: u64, value: u64): HashValue {
         assert!(addr & 3 == 0, Errors::invalid_argument(MEM_ACCESS_MUTST_BE_ALIGNED_TO_4BYTES));
-        // StarcoinFramework::Debug::print(&state_hash);
-        // if (addr > U32_MAX) {
-        //     StarcoinFramework::Debug::print(&((addr - U32_MAX - 1) / 4));
-        // } else {
-        //     StarcoinFramework::Debug::print(&addr);
-        // };
-        // StarcoinFramework::Debug::print(&value);
-
         let value = to_be_bytes(value);
         let key = to_be_bytes(addr >> 2);
         trie::update(&mut mem.data, state_hash, key, value)

@@ -17,9 +17,28 @@ module omo::mips {
 
 
     const EXIT_ADDRESS: u64 = 0xffffffff;
+    fun get_pc(mem: &Memory, _state_hash: HashValue): u64 {
+        read_reg(mem, _state_hash, REG_PC)
+    }
+    fun set_pc(mem: &mut Memory, state_hash: HashValue, next_pc: u64): HashValue {
+        write_reg(mem, state_hash, REG_PC, next_pc)
+    }
+
+    public fun gpr(mem: &Memory, _state_hash: HashValue, id: u64): u64 {
+        read_reg(mem, _state_hash, id + REG_ZERO)
+    }
+    public fun gpr_bits(mem: &Memory, _state_hash: HashValue, id: u64): Bits {
+        read_reg_bits(mem, _state_hash, id + REG_ZERO)
+    }
+    public fun set_gpr(mem: &mut Memory, state_hash: HashValue, id: u64, v: u64): HashValue {
+        write_reg(mem, state_hash, id + REG_ZERO, v)
+    }
+    public fun set_gpr_bits(mem: &mut Memory, state_hash: HashValue, id: u64, v: Bits): HashValue {
+        write_reg_bits(mem, state_hash, id + REG_ZERO, v)
+    }
 
     public fun step(mem: &mut Memory, state_hash: HashValue): HashValue {
-        let pc = read_reg(mem, state_hash, REG_PC);
+        let pc = get_pc(mem, state_hash);
         if (pc == EXIT_ADDRESS) {
             return state_hash
         };
@@ -33,46 +52,46 @@ module omo::mips {
         let rd = bits::data(&bits::slice(insn, 15, 11));
         let rt = bits::data(&bits::slice(insn, 20, 16));
         let rs = bits::data(&bits::slice(insn, 25, 21));
-        let rt_value = read_reg_bits(mem, state_hash, rt);
-        let rs_value = read_reg_bits(mem, state_hash, rs);
+        let rt_value = gpr_bits(mem, state_hash, rt);
+        let rs_value = gpr_bits(mem, state_hash, rs);
 
         state_hash = if (funct == 0) {
             //sll
-            let value = read_reg(mem, state_hash, rt) << shamt;
-            write_reg(mem, state_hash, rd, value)
+            let value = gpr(mem, state_hash, rt) << shamt;
+            set_gpr(mem, state_hash, rd, value)
         } else if (funct == 2) {
             //srl
-            let value = read_reg(mem, state_hash, rt) >> shamt;
-            write_reg(mem, state_hash, rd, value)
+            let value = gpr(mem, state_hash, rt) >> shamt;
+            set_gpr(mem, state_hash, rd, value)
         } else if (funct == 3) {
             //sra
-            let value = bits::se(bits::from_u64(read_reg(mem, state_hash, rt) >> shamt, 32 - shamt), 32);
+            let value = bits::se(bits::from_u64(gpr(mem, state_hash, rt) >> shamt, 32 - shamt), 32);
 
-            write_reg(mem, state_hash, rd, bits::data(&value))
+            set_gpr(mem, state_hash, rd, bits::data(&value))
         } else if (funct == 4) {
             // sllv
-            let rt_value = read_reg(mem, state_hash, rt);
-            let rs_value = bits::slice(read_reg_bits(mem, state_hash, rs), 4, 0); // lower 5-bits
-            write_reg(mem, state_hash, rd, rt_value << (bits::data(&rs_value) as u8))
+            let rt_value = gpr(mem, state_hash, rt);
+            let rs_value = bits::slice(gpr_bits(mem, state_hash, rs), 4, 0); // lower 5-bits
+            set_gpr(mem, state_hash, rd, rt_value << (bits::data(&rs_value) as u8))
         } else if (funct == 6) {
             // srlv
-            let rt_value = read_reg(mem, state_hash, rt);
-            let rs_value = bits::slice(read_reg_bits(mem, state_hash, rs), 4, 0); // lower 5-bits
-            write_reg(mem, state_hash, rd, rt_value >> (bits::data(&rs_value) as u8))
+            let rt_value = gpr(mem, state_hash, rt);
+            let rs_value = bits::slice(gpr_bits(mem, state_hash, rs), 4, 0); // lower 5-bits
+            set_gpr(mem, state_hash, rd, rt_value >> (bits::data(&rs_value) as u8))
         } else if (funct == 7) {
             // srav
-            let rt_value = read_reg(mem, state_hash, rt);
-            let rs_value = (bits::data(&bits::slice(read_reg_bits(mem, state_hash, rs), 4, 0)) as u8); // lower 5-bits
-            write_reg(mem, state_hash, rd, bits::data(&se(bits::from_u64(rt_value >> rs_value, 32 - rs_value), 32)))
+            let rt_value = gpr(mem, state_hash, rt);
+            let rs_value = (bits::data(&bits::slice(gpr_bits(mem, state_hash, rs), 4, 0)) as u8); // lower 5-bits
+            set_gpr(mem, state_hash, rd, bits::data(&se(bits::from_u64(rt_value >> rs_value, 32 - rs_value), 32)))
         } else if (funct == 8) {
             // jr
-            let rs_value = read_reg_bits(mem, state_hash, rs);
+            let rs_value = gpr_bits(mem, state_hash, rs);
             return step_pc(mem, state_hash, next_pc, bits::data(&rs_value))
         } else if (funct == 9) {
             // jalr
-            let rs_value = read_reg_bits(mem, state_hash, rs);
+            let rs_value = gpr_bits(mem, state_hash, rs);
             let state_hash = step_pc(mem, state_hash, next_pc, bits::data(&rs_value));
-            return write_reg(mem, state_hash, REG_R31, pc + 8)
+            return set_gpr(mem, state_hash, 31, pc + 8)
         } else if (funct == 12) {
             // syscall
             // TODO: handle syscall
@@ -80,7 +99,7 @@ module omo::mips {
         } else if (funct == 16) {
             // mfhi
             let val = read_reg_bits(mem, state_hash, REG_HI);
-            write_reg(mem, state_hash, rd, bits::data(&val))
+            set_gpr(mem, state_hash, rd, bits::data(&val))
         } else if (funct == 17) {
             // mthi
             let val = bits::data(&rs_value);
@@ -88,7 +107,7 @@ module omo::mips {
         } else if (funct == 18) {
             // mflo
             let val = read_reg_bits(mem, state_hash, REG_LO);
-            write_reg(mem, state_hash, rd, bits::data(&val))
+            set_gpr(mem, state_hash, rd, bits::data(&val))
         } else if (funct == 19) {
             // mtlo
             let val = bits::data(&rs_value);
@@ -142,46 +161,46 @@ module omo::mips {
             if (bit_31 != bit_32) {
                 abort 1000
             };
-            write_reg_bits(mem, state_hash, rd, bits::slice(temp, 31, 0))
+            set_gpr_bits(mem, state_hash, rd, bits::slice(temp, 31, 0))
         }else if (funct == 35) {
             //subu
             let temp = bits::data(&rs_value) - bits::data(&rt_value);
-            write_reg_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
+            set_gpr_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
         }else if (funct == 36) {
             //and
             let temp = bits::data(&rs_value) & bits::data(&rt_value);
-            write_reg_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
+            set_gpr_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
         }else if (funct == 37) {
             //or
             let temp = bits::data(&rs_value) | bits::data(&rt_value);
-            write_reg_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
+            set_gpr_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
         }else if (funct == 38) {
             //xor
             let temp = bits::data(&rs_value) ^ bits::data(&rt_value);
-            write_reg_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
+            set_gpr_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
         }else if (funct == 39) {
             // nor
             let temp = bits::data(&rs_value) | bits::data(&rt_value);
             temp = temp ^ 0xffffffff;  // not
-            write_reg_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
+            set_gpr_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
         }else if (funct == 42) {
             // slt
             let temp = i64::less_than(
                 i64::from_bits(rs_value), i64::from_bits(rt_value));
             let temp = if (temp) { 1 } else { 0 };
-            write_reg_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
+            set_gpr_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
         }else if (funct == 43) {
             // sltu
             let temp = if (bits::data(&rs_value) < bits::data(&rt_value)) { 1 } else { 0 };
-            write_reg_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
+            set_gpr_bits(mem, state_hash, rd, bits::from_u64(temp, 32))
         } else {
             abort 502
         };
-        return write_reg(mem, state_hash, REG_PC, next_pc)
+        return set_pc(mem, state_hash, next_pc)
     }
     fun handle_jtype(mem: &mut Memory, state_hash: HashValue, pc: u64, next_pc: u64, insn: Bits, opcode: u64): HashValue {
         if (opcode == 3) {
-            state_hash = write_reg(mem, state_hash, REG_R31, pc + 8);
+            state_hash = set_gpr(mem, state_hash, 31, pc + 8);
         };
         let jump_address = bits::slice(insn, 25, 0);
         let higher = bits::slice(bits::from_u64(pc + 4, 32), 31, 28);
@@ -194,8 +213,8 @@ module omo::mips {
     fun handle_itype(mem: &mut Memory, state_hash: HashValue, pc: u64, next_pc: u64, insn: Bits, opcode: u64): HashValue {
         let rs = bits::data(&bits::slice(insn, 25, 21));
         let rt = bits::data(&bits::slice(insn, 20, 16));
-        let rs_value = read_reg_bits(mem, state_hash, rs);
-        let rt_value = read_reg_bits(mem, state_hash, rt);
+        let rs_value = gpr_bits(mem, state_hash, rs);
+        let rt_value = gpr_bits(mem, state_hash, rt);
         let imm = bits::slice(insn, 15, 0);
 
         // branch insr
@@ -237,33 +256,33 @@ module omo::mips {
         } else if (opcode == 10) {
             //slti
             let temp = i64::less_than(i64::from_bits(rs_value), i64::from_bits(se(imm, 32)));
-            write_reg(mem, state_hash, rt, if (temp) { 1 } else { 0 })
+            set_gpr(mem, state_hash, rt, if (temp) { 1 } else { 0 })
         } else if (opcode == 11) {
             // sltiu
             let temp = bits::data(&rs_value) < bits::data(&se(imm, 32));
-            write_reg(mem, state_hash, rt, if (temp) { 1 } else { 0 })
+            set_gpr(mem, state_hash, rt, if (temp) { 1 } else { 0 })
         } else if (opcode == 12) {
             // andi
             let temp = bits::data(&rs_value) & bits::data(&imm);
-            write_reg(mem, state_hash, rt, temp & 0xffffffff)
+            set_gpr(mem, state_hash, rt, temp & 0xffffffff)
         } else if (opcode == 13) {
             // ori
             let temp = bits::data(&rs_value) | bits::data(&imm);
-            write_reg(mem, state_hash, rt, temp & 0xffffffff)
+            set_gpr(mem, state_hash, rt, temp & 0xffffffff)
         } else if (opcode == 14) {
             // xori
             let temp = bits::data(&rs_value) ^ bits::data(&imm);
-            write_reg(mem, state_hash, rt, temp & 0xffffffff)
+            set_gpr(mem, state_hash, rt, temp & 0xffffffff)
         } else if (opcode == 15) {
             // lui
-            write_reg_bits(mem, state_hash, rt, left_shift(imm, 16))
+            set_gpr_bits(mem, state_hash, rt, left_shift(imm, 16))
         } else if (opcode == 32) {
             // lb
             let mem_addr = (bits::data(&se(imm, 32)) + bits::data(&rs_value)) & 0xffffffff;
             let memory_data_4b = bits::from_u64(read_memory(mem, state_hash, mem_addr & 0xfffffffc), 32);
 
             let mem_1b = bits::slice(memory_data_4b, (31 - (mem_addr & 0x3) * 8 as u8), (32 - (mem_addr & 0x3) * 8 - 8 as u8));
-            write_reg_bits(mem, state_hash, rt, se(mem_1b, 32))
+            set_gpr_bits(mem, state_hash, rt, se(mem_1b, 32))
         } else if (opcode == 33) {
             // lh
             let mem_addr = (bits::data(&se(imm, 32)) + bits::data(&rs_value)) & 0xffffffff;
@@ -271,7 +290,7 @@ module omo::mips {
             assert!(mem_addr & 0x1 == 0, 10000);
             let memory_data_4b = bits::from_u64(read_memory(mem, state_hash, mem_addr & 0xfffffffc), 32);
             let mem_2b = bits::slice(memory_data_4b, (31 - (mem_addr & 0x3) * 8 as u8), (32 - (mem_addr & 0x3) * 8 - 16 as u8));
-            write_reg_bits(mem, state_hash, rt, se(mem_2b, 32))
+            set_gpr_bits(mem, state_hash, rt, se(mem_2b, 32))
         }
         // else if (opcode == 34) { // lwl
         //
@@ -279,23 +298,17 @@ module omo::mips {
         else if (opcode == 35) {
             // lw
             let mem_addr = (bits::data(&se(imm, 32)) + bits::data(&rs_value)) & 0xffffffff;
-            StarcoinFramework::Debug::print(&imm);
-            StarcoinFramework::Debug::print(&rs);
-            StarcoinFramework::Debug::print(&rs_value);
-            StarcoinFramework::Debug::print(&rt);
-            StarcoinFramework::Debug::print(&mem_addr);
             // must be a multiple of 4
             assert!(mem_addr & 0x3 == 0, 10000);
             let memory_data_4b = bits::from_u64(read_memory(mem, state_hash, mem_addr & 0xfffffffc), 32);
-            StarcoinFramework::Debug::print(&memory_data_4b);
-            write_reg_bits(mem, state_hash, rt, memory_data_4b)
+            set_gpr_bits(mem, state_hash, rt, memory_data_4b)
         } else if (opcode == 36) {
             // lbu
             let mem_addr = (bits::data(&se(imm, 32)) + bits::data(&rs_value)) & 0xffffffff;
             let memory_data_4b = bits::from_u64(read_memory(mem, state_hash, mem_addr & 0xfffffffc), 32);
 
             let mem_1b = bits::slice(memory_data_4b, (31 - (mem_addr & 0x3) * 8 as u8), (32 - (mem_addr & 0x3) * 8 - 8 as u8));
-            write_reg_bits(mem, state_hash, rt, bits::ze(mem_1b, 32))
+            set_gpr_bits(mem, state_hash, rt, bits::ze(mem_1b, 32))
         } else if (opcode == 37) {
             // lhu
             let mem_addr = (bits::data(&se(imm, 32)) + bits::data(&rs_value)) & 0xffffffff;
@@ -303,7 +316,7 @@ module omo::mips {
             assert!(mem_addr & 0x1 == 0, 10000);
             let memory_data_4b = bits::from_u64(read_memory(mem, state_hash, mem_addr & 0xfffffffc), 32);
             let mem_2b = bits::slice(memory_data_4b, (31 - (mem_addr & 0x3) * 8 as u8), (32 - (mem_addr & 0x3) * 8 - 16 as u8));
-            write_reg_bits(mem, state_hash, rt, bits::ze(mem_2b, 32))
+            set_gpr_bits(mem, state_hash, rt, bits::ze(mem_2b, 32))
         } else if (opcode == 40) {
             // sb
             let mem_addr = (bits::data(&se(imm, 32)) + bits::data(&rs_value)) & 0xffffffff;
@@ -331,7 +344,6 @@ module omo::mips {
             };
             write_memory(mem, state_hash, read_addr, bits::data(&write_back))
         } else if (opcode == 43) {
-            // sw
             let mem_addr = (bits::data(&se(imm, 32)) + bits::data(&rs_value)) & 0xffffffff;
             assert!(mem_addr & 0x3 == 0, 10000);
 
@@ -342,7 +354,7 @@ module omo::mips {
             abort opcode
         };
 
-        return write_reg(mem, state_hash, REG_PC, next_pc)
+        return set_pc(mem, state_hash, next_pc)
     }
 
     fun step_pc(mem: &mut Memory, state_hash: HashValue, pc: u64, next_pc: u64): HashValue {
@@ -353,10 +365,6 @@ module omo::mips {
         let insn = bits::from_u64(insn, 32);
         let opcode = bits::slice(insn, 31, 26); // first 6-bits
         let opcode = bits::data(&opcode);
-
-        StarcoinFramework::Debug::print(&pc);
-        StarcoinFramework::Debug::print(&next_pc);
-        StarcoinFramework::Debug::print(&opcode);
 
         // r-type
         state_hash = if (opcode == 0) {
@@ -383,14 +391,14 @@ module omo::mips {
         if (bit_31 != bit_32) {
             abort 1000
         };
-        write_reg_bits(mem, state_hash, store_reg, bits::slice(temp, 31, 0))
+        set_gpr_bits(mem, state_hash, store_reg, bits::slice(temp, 31, 0))
     }
 
     fun addu(mem: &mut Memory, state_hash: HashValue, store_reg: u64, a: Bits, b: Bits): HashValue {
         let temp = bits::data(&a) + bits::data(&b);
         // only need last 32 bits
         let temp = temp & 0xffffffff;
-        write_reg(mem, state_hash, store_reg, temp)
+        set_gpr(mem, state_hash, store_reg, temp)
     }
 }
 
