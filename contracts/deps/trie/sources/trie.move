@@ -406,7 +406,9 @@ module trie::trie {
     /// and return the hash
     public fun add_raw_node(trie: &mut TrieDB, encoded_node_data: vector<u8>): HashValue {
         let hash = hash_value::new(keccak256(encoded_node_data));
-        Table::add(&mut trie.data, hash, encoded_node_data);
+        if (!Table::contains(&trie.data, hash)) {
+            Table::add(&mut trie.data, hash, encoded_node_data);
+        };
         hash
     }
 
@@ -422,12 +424,12 @@ module trie::trie {
     }
 
     public fun get(trie: &TrieDB, root: HashValue, key: &vector<u8>): Option<vector<u8>> {
-        let (_, path_remainder, path_value) = walk_node_path(trie, root, key);
-        let exists = (length(&path_remainder) == 0);
+        let (_, _path_remainder, path_value) = walk_node_path(trie, root, key);
+        // let exists = (length(&path_remainder) == 0);
 
-        // provided proof is not valid.
-        assert!(
-            (exists && Option::is_some(&path_value)) || (!exists && Option::is_none(&path_value)), 1000);
+        // // provided proof is not valid.
+        // assert!(
+        //     (exists && Option::is_some(&path_value)) || (!exists && Option::is_none(&path_value)), 1000);
         path_value
     }
 
@@ -698,7 +700,9 @@ module trie::trie {
             // If the root node is < 32 bytes, it won't have a stored hash
             if (root.inline) {
                 let hash = hash_value::new(keccak256(root.data));
-                Table::add(&mut trie.data, hash, root.data);
+                if (!Table::contains(&trie.data, hash)) {
+                    Table::add(&mut trie.data, hash, root.data);
+                };
                 hash
             } else {
                 hash_value::new(root.data)
@@ -715,7 +719,9 @@ module trie::trie {
             }
         } else {
             let hash = hash_value::new(keccak256(encoded_node_data));
-            Table::add(&mut trie.data, hash, encoded_node_data);
+            if (!Table::contains(&trie.data, hash)) {
+                Table::add(&mut trie.data, hash, encoded_node_data);
+            };
             node_id_from_hash(hash)
         }
     }
@@ -743,8 +749,10 @@ module trie::trie {
     fun get_single_node_root_hash(trie: &mut TrieDB, key: vector<u8>, value: vector<u8>): HashValue {
         let dat = make_leaf_node(byte_utils::to_nibbles(&key), value);
         let dat = rlp_encode(&dat);
-        let ret = keccak256(dat);
-        Table::add(&mut trie.data, hash_value::new(ret), dat);
-        hash_value::new(ret)
+        let hash = hash_value::new(keccak256(dat));
+        if (!Table::contains(&trie.data, hash)) {
+            Table::add(&mut trie.data, hash, dat);
+        };
+        hash
     }
 }

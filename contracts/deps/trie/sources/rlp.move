@@ -20,10 +20,24 @@ module trie::rlp {
     }
     const RlpExpectedToBeList: u64 = 1000;
     const RlpExpectedToBeData: u64 = 1001;
+
     public fun as_val(rlp: &Rlp): vector<u8> {
         assert!(is_data(rlp), RlpExpectedToBeData);
         decode_value(&rlp.bytes)
     }
+
+    public fun as_valuelist(rlp: &Rlp): vector<vector<u8>> {
+        let l = as_list(rlp);
+        let ret = Vector::empty();
+        let i = 0;
+        while (i < length(&l)) {
+            let e = Vector::borrow(&l, i);
+            Vector::push_back(&mut ret, as_val(e));
+            i=i+1;
+        };
+        ret
+    }
+
     public fun as_list(rlp: &Rlp): vector<Rlp> {
         assert!(is_list(rlp), RlpExpectedToBeList);
         let rets = Vector::empty();
