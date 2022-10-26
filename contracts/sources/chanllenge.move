@@ -10,7 +10,6 @@ module omo::Challenge {
     use ContractAddress::ContractAccount;
     use trie::hash_value::HashValue;
     use trie::hash_value;
-    use StarcoinFramework::Event::emit_event;
 
     const ERR_BLOCK_NUMBER_HASH_EMPTY: u64 = 1;
     const ERR_BLOCK_NUMBER_P1_HASH_EMPTY: u64 = 2;
@@ -27,6 +26,7 @@ module omo::Challenge {
     const ERR_BINARY_SEARCH_NOT_FINISHED: u64 = 13;
     const ERR_WRONG_ASSERTED_STATE_FOR_CHALLENGER: u64 = 14;
     const ERR_WRONG_ASSERTED_STATE_FOR_DEFENDER: u64 = 15;
+    const ERR_TABLE_KEY_NOT_EXISTS: u64 = 16;
 
     struct ChallengeData has key,store {
         L: u64,
@@ -62,7 +62,7 @@ module omo::Challenge {
         r
     }
 
-    public entry fun do_init(account: signer, start_state: HashValue) {
+    public fun do_init(account: signer, start_state: HashValue) {
         Self::init(&account, start_state);
     }
 
@@ -88,6 +88,11 @@ module omo::Challenge {
     fun get_global_challenge_id(signer: &signer): u64 acquires Global {
         let g = borrow_global<Global>(Signer::address_of(signer));
         *&g.lastChallengeId
+    }
+
+    fun borrow_table_value(table: &Table::Table<u64, HashValue>, key: u64): &HashValue {
+        assert!(Table::contains(table, key), ERR_TABLE_KEY_NOT_EXISTS);
+        Table::borrow(table, key)
     }
 
     fun set_challenge_challenger(signer: &signer, change_id: u64, challenger: address,
@@ -204,7 +209,7 @@ module omo::Challenge {
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
-        let borrowed_state = Table::borrow(&c.asserted_state, step_number);
+        let borrowed_state = borrow_table_value(&c.asserted_state, step_number);
         *borrowed_state
     }
 
@@ -221,7 +226,7 @@ module omo::Challenge {
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
         assert!(c.challenger == Signer::address_of(signer), ERR_MUST_BE_CHALLENGER);
 
-        let state = Table::borrow(&c.asserted_state, step_number);
+        let state = borrow_table_value(&c.asserted_state, step_number);
         assert!(vector_to_u64(&hash_value::to_bytes(*state)) == 0, ERR_STATE_ALREADY_PROPOSED);
 
         let key_contains = Table::contains(&c.asserted_state, step_number);
@@ -242,10 +247,10 @@ module omo::Challenge {
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
         assert!(c.challenger == Signer::address_of(signer), ERR_MUST_BE_CHALLENGER);
 
-        let asserted_state = Table::borrow(&c.asserted_state, step_number);
+        let asserted_state = borrow_table_value(&c.asserted_state, step_number);
         assert!(vector_to_u64(&hash_value::to_bytes(*asserted_state)) != 0, ERR_CHALLENGE_STATE_NOT_PROPOSED);
 
-        let defended_state = Table::borrow(&c.asserted_state, step_number);
+        let defended_state = borrow_table_value(&c.defended_state, step_number);
         assert!(vector_to_u64(&hash_value::to_bytes(*defended_state)) != 0, ERR_STATE_ALREADY_PROPOSED);
 
         let key_contains = Table::contains(&c.defended_state, step_number);
@@ -254,8 +259,8 @@ module omo::Challenge {
         };
 
         // update binary search bounds
-        let asserted_state = Table::borrow(&c.asserted_state, step_number);
-        let defended_state = Table::borrow(&c.defended_state, step_number);
+        let asserted_state = borrow_table_value(&c.asserted_state, step_number);
+        let defended_state = borrow_table_value(&c.defended_state, step_number);
         if (asserted_state == defended_state) {
             c.L = step_number;  // agree
         } else {
@@ -271,11 +276,11 @@ module omo::Challenge {
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
-        let asserted_state = Table::borrow(&c.asserted_state, c.L);
+        let asserted_state = borrow_table_value(&c.asserted_state, c.L);
         let addr = Signer::address_of(signer);
         let step_state = mips_emulator::run(addr, hash_value::to_bytes(*asserted_state));
 
-        let right_asserted_state = Table::borrow(&c.asserted_state, c.R);
+        let right_asserted_state = borrow_table_value(&c.asserted_state, c.R);
         assert!(step_state == hash_value::to_bytes(*right_asserted_state), ERR_WRONG_ASSERTED_STATE_FOR_CHALLENGER);
 
         // TODO: emit challenge wins event
@@ -289,11 +294,11 @@ module omo::Challenge {
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
-        let defended_state = Table::borrow(&c.defended_state, c.L);
+        let defended_state = borrow_table_value(&c.defended_state, c.L);
         let addr = Signer::address_of(signer);
         let step_state = mips_emulator::run(addr, hash_value::to_bytes(*defended_state));
 
-        let right_defended_state = Table::borrow(&c.defended_state, c.R);
+        let right_defended_state = borrow_table_value(&c.defended_state, c.R);
         assert!(step_state == hash_value::to_bytes(*right_defended_state), ERR_WRONG_ASSERTED_STATE_FOR_DEFENDER);
 
         // TODO: emit defender wins event
