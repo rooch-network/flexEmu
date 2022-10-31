@@ -15,7 +15,7 @@ pub mod errors;
 pub mod loader;
 pub mod memory;
 pub mod os;
-mod rand;
+pub mod rand;
 pub mod registers;
 pub mod stack;
 pub mod utils;

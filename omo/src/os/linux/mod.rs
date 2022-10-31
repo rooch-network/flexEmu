@@ -1,15 +1,13 @@
 use std::{
-    cell::RefCell,
-    collections::HashMap,
-    io::{stderr, stdout, Write},
-    rc::Rc,
-    str::FromStr,
+    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
 };
 
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
+
+use file::{open, read, write};
 
 use crate::{
     arch::{ArchInfo, ArchT},
@@ -19,14 +17,18 @@ use crate::{
     loader::LoadInfo,
     memory::Memory,
     os::{
-        linux::syscall::{Rlimit, SysCalls, SysInfo},
+        linux::{
+            file::{close, fcntl, fstat, fstatat64, ioctl, lseek, lstat, readlink, stat},
+            syscall::{Rlimit, Stat64MIPS, StatMIPS, StatX8664, SysCalls, SysInfoMIPS},
+        },
         Runner,
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, Packer},
+    utils::{align, align_up, read_string, Packer},
 };
 
+mod file;
 pub mod syscall;
 
 #[derive(Debug, Default)]
@@ -145,14 +147,6 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.brk(core, p0)?
             }
-            SysCalls::WRITE => {
-                // {"fd": 1, "buf": 4599872, "count": 12}
-                let p0 = cc.get_raw_param(core, 0, None)?;
-                let p1 = cc.get_raw_param(core, 1, None)?;
-                let p2 = cc.get_raw_param(core, 2, None)?;
-
-                self.write(core, p0, p1, p2)?
-            }
             SysCalls::EXIT_GROUP => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 self.exit_group(core, p0)?
@@ -248,6 +242,109 @@ impl Inner {
                 let p2 = cc.get_raw_param(core, 1, None)?;
                 let p3 = cc.get_raw_param(core, 1, None)?;
                 self.prlimit64(core, p0, p1, p2, p3)?
+            }
+            SysCalls::OPEN => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.open(core, p0, p1, p2)?
+            }
+            SysCalls::READ => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.read(core, p0, p1, p2)?
+            }
+            SysCalls::WRITE => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.write(core, p0, p1, p2)?
+            }
+            SysCalls::WRITEV => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.writev(core, p0, p1, p2)?
+            }
+            SysCalls::CLOSE => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                self.close(core, p0)?
+            }
+            SysCalls::LSEEK => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.lseek(core, p0, p1, p2)?
+            }
+            SysCalls::_LLSEEK => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 2, None)?;
+                let p4 = cc.get_raw_param(core, 2, None)?;
+                self._llseek(core, p0, p1, p2, p3, p4)?
+            }
+            SysCalls::FCNTL => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.fcntl(core, p0, p1, p2)?
+            }
+            SysCalls::FCNTL64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.fcntl64(core, p0, p1, p2)?
+            }
+            SysCalls::READLINK => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                self.readlink(core, p0, p1, p2)?
+            }
+            SysCalls::STAT => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.stat(core, p0, p1)?
+            }
+            SysCalls::STAT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.stat64(core, p0, p1)?
+            }
+            SysCalls::FSTAT => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.fstat(core, p0, p1)?
+            }
+            SysCalls::FSTAT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.fstat64(core, p0, p1)?
+            }
+            SysCalls::LSTAT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.lstat64(core, p0, p1)?
+            }
+            SysCalls::FSTATAT64 => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 0, None)?;
+                let p3 = cc.get_raw_param(core, 1, None)?;
+                self.fstatat64(core, p0, p1, p2, p3)?
+            }
+            SysCalls::GETCWD => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                self.getcwd(core, p0, p1)?
+            }
+            SysCalls::IOCTL => {
+                let p0 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 1, None)?;
+                self.ioctl(core, p0, p1, p2)?
             }
 
             _ => {
@@ -445,35 +542,6 @@ impl Inner {
         }
         Ok(self.brk_address as i64)
     }
-
-    fn write<'a, A: ArchT>(
-        &mut self,
-        core: &mut Engine<'a, A>,
-        fd: u64,
-        buf: u64,
-        count: u64,
-    ) -> Result<i64, uc_error> {
-        log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
-        const NR_OPEN: u64 = 1024;
-        if fd > NR_OPEN {
-            return Ok(-(EBADF as i64));
-        }
-        let data = match Memory::read(core, buf, count as usize) {
-            Ok(d) => d,
-            Err(_e) => {
-                return Ok(-1);
-            }
-        };
-        if fd == 1 {
-            stdout().write_all(data.as_slice()).unwrap();
-        } else if fd == 2 {
-            stderr().write_all(data.as_slice()).unwrap();
-        } else {
-            return Ok(-1);
-        }
-
-        Ok(count as i64)
-    }
     fn exit_group<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
@@ -500,12 +568,7 @@ impl Inner {
                 n,
                 &RAND_SOURCE[0..n as usize]
             );
-            match Memory::write(core, buf, &RAND_SOURCE[0..n as usize]) {
-                Err(_e) => {
-                    return Ok(-1);
-                }
-                _ => {}
-            };
+            Memory::write(core, buf, &RAND_SOURCE[0..n as usize])?;
             left -= n;
         }
 
@@ -737,11 +800,11 @@ impl Inner {
     ) -> Result<i64, uc_error> {
         log::debug!("[sysinfo] info: {:#x}", info);
 
-        let i: SysInfo = Default::default();
+        let i: SysInfoMIPS = Default::default();
         Memory::write_ptr(
             core,
             info,
-            (&i as *const SysInfo) as u64,
+            (&i as *const SysInfoMIPS) as u64,
             Some(core.pointer_size()),
         )?;
         Ok(0)
@@ -782,8 +845,448 @@ impl Inner {
             )?;
             return Ok(0);
         }
+
         Ok(-1)
     }
+    fn open<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        filename: u64,
+        flags: u64,
+        mode: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, filename, b"\x00")?;
+        log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
+        match open(path.as_str(), flags, mode) {
+            Ok(fd) => Ok(fd),
+            Err(e) => {
+                log::warn!("failed to open ({}, {}, {}): {:?}", path, flags, mode, e);
+                Ok(-1)
+            }
+        }
+    }
+    fn write<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        buf: u64,
+        count: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
+        let data = Memory::read(core, buf, count as usize)?;
+        match write(fd, data.as_ptr() as usize as u64, count) {
+            Ok(size) => Ok(size),
+            Err(e) => {
+                log::warn!("failed to write ({}, {}, {}): {:?}", fd, buf, count, e);
+                Ok(-1)
+            }
+        }
+    }
+    fn writev<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        vec: u64,
+        vlen: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("writev({}, {}, {}) pc: {}", fd, vec, vlen, core.pc()?);
+        let mut ret: i64 = 0;
+        let size_t_len = core.pointer_size() as u64;
+        let iov = Memory::read(core, vec, (vlen * size_t_len * 2) as usize)?;
+        let packer = Packer::new(core.endian(), core.pointer_size());
+        let mut i = 0;
+        while i < vlen {
+            let addr_origin =
+                &iov[(i * size_t_len * 2) as usize..(i * size_t_len * 2 + size_t_len) as usize];
+            let addr = packer.unpack(addr_origin.to_vec());
+            let l_origin = &iov[(i * size_t_len * 2 + size_t_len) as usize
+                ..(i * size_t_len * 2 + size_t_len * 2) as usize];
+            let l = packer.unpack(l_origin.to_vec());
+            ret += l as i64;
+            let buf = Memory::read(core, addr, l as usize)?;
+            if let Err(e) = write(fd, buf.as_ptr() as usize as u64, l) {
+                log::warn!("failed to writev ({}, {}, {}): {:?}", fd, vec, vlen, e);
+                return Ok(-1);
+            };
+            i += 1;
+        }
+        Ok(ret)
+    }
+    fn read<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        buf: u64,
+        len: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("read({}, {}, {}) pc: {}", fd, buf, len, core.pc()?);
+        let host_buf = vec![0_u8; len as usize];
+        let size = match read(fd, host_buf.as_ptr() as usize as u64, len) {
+            Ok(size) => size,
+            Err(e) => {
+                log::warn!("failed to read ({}, {}, {}): {:?}", fd, buf, len, e);
+                return Ok(-1);
+            }
+        };
+        Memory::write(core, buf, host_buf)?;
+        Ok(size)
+    }
+    fn close<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("close({}) pc: {}", fd, core.pc()?);
+        match close(fd) {
+            Err(e) => {
+                log::warn!("failed to close ({}): {:?}", fd, e);
+                Ok(-1)
+            }
+            _ => Ok(0),
+        }
+    }
+    fn lseek<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        offset: u64,
+        whence: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("lseek({}, {}, {}) pc: {}", fd, offset, whence, core.pc()?);
+        match lseek(fd, offset, whence) {
+            Ok(off) => Ok(off),
+            Err(e) => {
+                log::warn!("failed to lseek ({} {} {}): {:?}", fd, offset, whence, e);
+                Ok(-1)
+            }
+        }
+    }
+    fn _llseek<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        offset_high: u64,
+        offset_low: u64,
+        result: u64,
+        whence: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!(
+            "_llseek({}, {}, {}, {}, {}) pc: {}",
+            fd,
+            offset_high,
+            offset_low,
+            result,
+            whence,
+            core.pc()?
+        );
+        let offset = offset_high << 32 | offset_low;
+        let origin = whence;
+        let ret = match lseek(fd, offset, origin) {
+            Err(e) => {
+                log::warn!(
+                    "failed to _llseek ({} {} {} {} {}): {:?}",
+                    fd,
+                    offset_high,
+                    offset_low,
+                    result,
+                    whence,
+                    e
+                );
+                return Ok(-1);
+            }
+            Ok(ret) => ret,
+        };
+        Memory::write_ptr(
+            core,
+            result,
+            (&ret as *const i64) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn fcntl<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        cmd: u64,
+        arg: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fcntl({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
+        match fcntl(fd, cmd, arg) {
+            Ok(ret) => Ok(ret),
+            Err(e) => {
+                log::warn!("failed to fcntl ({} {} {}): {:?}", fd, cmd, arg, e);
+                Ok(-1)
+            }
+        }
+    }
+    fn fcntl64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        cmd: u64,
+        arg: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fcntl64({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
+        match fcntl(fd, cmd, arg) {
+            Ok(ret) => Ok(ret),
+            Err(e) => {
+                log::warn!("failed to fcntl64 ({} {} {}): {:?}", fd, cmd, arg, e);
+                Ok(-1)
+            }
+        }
+    }
+    fn readlink<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        path_name: u64,
+        buf: u64,
+        buf_size: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!(
+            "readlink({}, {}, {}) pc: {}",
+            path,
+            buf,
+            buf_size,
+            core.pc()?
+        );
+        let host_buf = vec![0_u8; buf_size as usize];
+        let size = match readlink(path.as_str(), host_buf.as_ptr() as u64, buf_size) {
+            Ok(size) => size,
+            Err(e) => {
+                log::debug!(
+                    "failed to readlink({}, {}, {}): {:?}",
+                    path,
+                    buf,
+                    buf_size,
+                    e
+                );
+                return Ok(-1);
+            }
+        };
+        Memory::write(core, buf, host_buf)?;
+        Ok(size)
+    }
+    fn stat<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        path_name: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!("stat ({}, {}) pc: {}", path, stat_buf, core.pc()?);
+        let host_buf = match get_stat(path.as_str()) {
+            Err(e) => {
+                log::debug!("failed to stat({}, {}): {:?}", path, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = StatMIPS::default();
+        stat.st_ino = host_buf.st_ino as u32;
+        stat.st_size = host_buf.st_size as u32;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const StatMIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn stat64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        path_name: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!("stat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
+        let host_buf = match get_stat(path.as_str()) {
+            Err(e) => {
+                log::debug!("failed to stat64({}, {}): {:?}", path, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = Stat64MIPS::default();
+        stat.st_ino = host_buf.st_ino;
+        stat.st_size = host_buf.st_size as u64;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const Stat64MIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn fstat<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fstat ({}, {}) pc: {}", fd, stat_buf, core.pc()?);
+        let host_buf = match get_fstat(fd) {
+            Err(e) => {
+                log::debug!("failed to fstat({}, {}): {:?}", fd, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = StatMIPS::default();
+        stat.st_ino = host_buf.st_ino as u32;
+        stat.st_size = host_buf.st_size as u32;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const StatMIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn fstat64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("fstat64 ({}, {}) pc: {}", fd, stat_buf, core.pc()?);
+        let host_buf = match get_fstat(fd) {
+            Err(e) => {
+                log::debug!("failed to fstat64 ({}, {}): {:?}", fd, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = Stat64MIPS::default();
+        stat.st_ino = host_buf.st_ino;
+        stat.st_size = host_buf.st_size as u64;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const Stat64MIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn lstat64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        path_name: u64,
+        stat_buf: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!("lstat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
+        let host_buf = match get_lstat(path.as_str()) {
+            Err(e) => {
+                log::debug!("failed to lstat64 ({}, {}): {:?}", path, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = Stat64MIPS::default();
+        stat.st_ino = host_buf.st_ino;
+        stat.st_size = host_buf.st_size as u64;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const Stat64MIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn fstatat64<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        dir_fd: u64,
+        path_name: u64,
+        stat_buf: u64,
+        flags: u64,
+    ) -> Result<i64, EmulatorError> {
+        let path = read_string(core, path_name, b"\x00")?;
+        log::debug!("fstatat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
+        let host_buf = match get_fstatat64(dir_fd, path.as_str(), flags) {
+            Err(e) => {
+                log::debug!("failed to fstatat64({}, {}): {:?}", path, stat_buf, e);
+                return Ok(-1);
+            }
+            Ok(h) => h,
+        };
+        let mut stat = Stat64MIPS::default();
+        stat.st_ino = host_buf.st_ino;
+        stat.st_size = host_buf.st_size as u64;
+        stat.st_mode = host_buf.st_mode;
+        Memory::write_ptr(
+            core,
+            stat_buf,
+            (&stat as *const Stat64MIPS) as u64,
+            Some(core.pointer_size()),
+        )?;
+        Ok(0)
+    }
+    fn getcwd<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        buf: u64,
+        size: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("getcwd ({}, {}) pc: {}", buf, size, core.pc()?);
+        let dir = match env::current_dir() {
+            Err(e) => {
+                log::debug!("failed to getcwd ({}, {}): {:?}", buf, size, e);
+                return Ok(-1);
+            }
+            Ok(d) => d,
+        };
+        Memory::write(core, buf, dir.as_os_str().as_bytes())?;
+        Ok(0)
+    }
+    fn ioctl<'a, A: ArchT>(
+        &mut self,
+        core: &mut Engine<'a, A>,
+        fd: u64,
+        cmd: u64,
+        arg: u64,
+    ) -> Result<i64, EmulatorError> {
+        log::debug!("ioctl ({}, {}, {}) pc: {}", fd, cmd, arg, core.pc()?);
+        match ioctl(fd, cmd, arg) {
+            Err(e) => {
+                log::debug!("failed to ioctl ({}, {}, {}): {:?}", fd, cmd, arg, e);
+                Ok(-1)
+            }
+            Ok(r) => Ok(r),
+        }
+    }
+}
+
+fn get_stat(path: &str) -> Result<StatX8664, EmulatorError> {
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
+    stat(path, (&host_buf as *const StatX8664) as u64)?;
+    Ok(host_buf)
+}
+
+fn get_fstat(fd: u64) -> Result<StatX8664, EmulatorError> {
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
+    fstat(fd, (&host_buf as *const StatX8664) as u64)?;
+    Ok(host_buf)
+}
+
+fn get_lstat(path: &str) -> Result<StatX8664, EmulatorError> {
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
+    lstat(path, (&host_buf as *const StatX8664) as u64)?;
+    Ok(host_buf)
+}
+
+fn get_fstatat64(dir_fd: u64, path: &str, flags: u64) -> Result<StatX8664, EmulatorError> {
+    let host_buf: StatX8664 = unsafe { mem::zeroed() };
+    fstatat64(dir_fd, path, (&host_buf as *const StatX8664) as u64, flags)?;
+    Ok(host_buf)
 }
 
 fn get_rlimit(res: u64) -> Rlimit {
@@ -792,11 +1295,10 @@ fn get_rlimit(res: u64) -> Rlimit {
         // RLIMIT_STACK
         r0 = 196608 // 192KiB
     }
-    let rlimit = Rlimit {
+    Rlimit {
         cur: r0,
         max: u32::MAX,
-    };
-    return rlimit;
+    }
 }
 
 const EBADF: u64 = 9;
