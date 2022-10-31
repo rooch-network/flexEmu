@@ -224,6 +224,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hex-buffer-serde"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08f52012c160668b4494727f3588045aa00429849fcae51de70d68fa98228039"
+dependencies = [
+ "hex",
+ "serde",
+]
+
+[[package]]
 name = "hex-literal"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -354,12 +364,14 @@ dependencies = [
  "ethtrie-codec",
  "goblin",
  "hex",
+ "hex-buffer-serde",
  "lazy_static",
  "log",
  "map-macro",
  "maplit",
  "memory-db",
  "num-traits",
+ "rlp",
  "serde",
  "serde_json",
  "strum",

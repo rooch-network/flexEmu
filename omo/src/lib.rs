@@ -2,6 +2,7 @@
 //#![feature(generic_const_exprs)]
 //#![feature(adt_const_params)]
 #![feature(box_syntax)]
+#![feature(slice_as_chunks)]
 
 extern crate core;
 

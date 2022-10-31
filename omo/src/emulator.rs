@@ -141,8 +141,23 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
         };
 
         let mem_access_sequence = Rc::new(RefCell::new(vec![]));
+        mem_access_sequence.borrow_mut().push(MemAccess {
+            write: false,
+            addr: self.core.pc_read()?,
+            size: 4,
+            value: u32::from_be_bytes(
+                *self
+                    .core
+                    .mem_read_as_vec(self.core.pc_read()?, 4)?
+                    .as_chunks()
+                    .0
+                    .first()
+                    .unwrap(),
+            ) as i64,
+        });
+
         let handle = self.core.add_mem_hook(
-            HookType::MEM_READ_AFTER | HookType::MEM_WRITE,
+            HookType::MEM_READ_AFTER | HookType::MEM_WRITE | HookType::MEM_VALID,
             0,
             u32::MAX as u64,
             {
@@ -157,7 +172,7 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
                                 value,
                             });
                         }
-                        MemType::READ_AFTER => {
+                        MemType::READ_AFTER | MemType::READ | MemType::FETCH => {
                             mem_access.borrow_mut().push(MemAccess {
                                 write: false,
                                 addr,
