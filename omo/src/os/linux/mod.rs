@@ -557,22 +557,24 @@ impl Inner {
         buf: u64,
         buf_len: u64,
     ) -> Result<i64, uc_error> {
-        let mut left = buf_len;
+        let mut left = buf_len as i64;
+        log::debug!("get_random({} {}) pc: {}", buf, buf_len, core.pc()?);
         while left > 0 {
-            let mut n = RAND_SOURCE_LEN;
-            if left < RAND_SOURCE_LEN {
+            let mut n = RAND_SOURCE_LEN as i64;
+            if left < RAND_SOURCE_LEN as i64 {
                 n = left;
             }
             log::debug!(
-                "get_random({}) content: {:x?}",
+                "get_random({}, left: {}) content: {:x?}",
                 n,
+                left,
                 &RAND_SOURCE[0..n as usize]
             );
             Memory::write(core, buf, &RAND_SOURCE[0..n as usize])?;
             left -= n;
         }
 
-        Ok(0)
+        Ok(buf_len as i64)
     }
     fn sched_getaffinity<'a, A: ArchT>(
         &mut self,
