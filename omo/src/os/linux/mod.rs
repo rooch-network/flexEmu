@@ -861,7 +861,7 @@ impl Inner {
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
         match open(path.as_str(), flags, mode) {
             Ok(fd) => {
-                log::warn!("succeed to open ({}, {}, {}) fd: {}", path, flags, mode, fd);
+                log::debug!("succeed to open ({}, {}, {}) fd: {}", path, flags, mode, fd);
                 Ok(fd)
             }
             Err(e) => {
