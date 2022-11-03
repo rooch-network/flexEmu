@@ -860,7 +860,10 @@ impl Inner {
         let path = read_string(core, filename, b"\x00")?;
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
         match open(path.as_str(), flags, mode) {
-            Ok(fd) => Ok(fd),
+            Ok(fd) => {
+                log::warn!("succeed to open ({}, {}, {}) fd: {}", path, flags, mode, fd);
+                Ok(fd)
+            }
             Err(e) => {
                 log::warn!("failed to open ({}, {}, {}): {:?}", path, flags, mode, e);
                 Ok(-1)

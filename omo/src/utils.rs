@@ -87,10 +87,12 @@ pub fn read_string<'a, A: ArchT>(
         result.extend(char.clone());
         char = Memory::read(core, address, char_len)?;
     }
-    let result = match String::from_utf8(char) {
+    let result = match String::from_utf8(result) {
         Ok(r) => r,
         Err(e) => return Err(EmulatorError::Custom(Error::new(e))),
     };
+
+    log::debug!("read_string from: {}, get: {}", address, result);
 
     Ok(result)
 }
