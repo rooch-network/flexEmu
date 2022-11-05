@@ -1,10 +1,11 @@
 use std::{
-    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
+    cell::RefCell, collections::HashMap, env, ffi::CString, mem, os::unix::ffi::OsStrExt, rc::Rc,
+    str::FromStr,
 };
 
 use unicorn_engine::{
-    unicorn_const::{uc_error, Arch, MemRegion, Permission},
-    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
+    RegisterARM,
+    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
 };
 
 use file::{open, read, write};
@@ -25,7 +26,7 @@ use crate::{
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, read_string, Packer},
+    utils::{align, align_up, Packer, read_string},
 };
 
 mod file;
@@ -185,7 +186,7 @@ impl Inner {
             }
             SysCalls::CLOCK_GETTIME => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
-                let p1 = cc.get_raw_param(core, 0, None)?;
+                let p1 = cc.get_raw_param(core, 1, None)?;
                 self.clock_gettime(core, p0, p1)?
             }
             SysCalls::MMAP2 => {
@@ -239,8 +240,8 @@ impl Inner {
             SysCalls::PRLIMIT64 => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
-                let p2 = cc.get_raw_param(core, 1, None)?;
-                let p3 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 3, None)?;
                 self.prlimit64(core, p0, p1, p2, p3)?
             }
             SysCalls::OPEN => {
@@ -857,9 +858,21 @@ impl Inner {
         flags: u64,
         mode: u64,
     ) -> Result<i64, EmulatorError> {
+        log::debug!("open with flags: {}", flags);
+        let mut flags = flags;
+        flags &= !(0x2000);  // trip O_ASYNC
+        if flags & 1 == 1 || flags & 2 == 2 {   // open with write
+            flags |= 1 << 6 // add O_CREAT
+        }
+        log::debug!("open with adjusted flags: {}", flags);
+
         let path = read_string(core, filename, b"\x00")?;
+        if path.is_empty() {
+            log::warn!("empty path to open ({}, {}, {})", filename, flags, mode);
+            return Ok(-1);
+        }
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
-        match open(path.as_str(), flags, mode) {
+        match open(path.as_bytes().as_ptr(), flags, mode) {
             Ok(fd) => {
                 log::debug!("succeed to open ({}, {}, {}) fd: {}", path, flags, mode, fd);
                 Ok(fd)
@@ -879,7 +892,7 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
-        match write(fd, data.as_ptr() as usize as u64, count) {
+        match write(fd, data.as_ptr(), count) {
             Ok(size) => Ok(size),
             Err(e) => {
                 log::warn!("failed to write ({}, {}, {}): {:?}", fd, buf, count, e);
@@ -909,7 +922,7 @@ impl Inner {
             let l = packer.unpack(l_origin.to_vec());
             ret += l as i64;
             let buf = Memory::read(core, addr, l as usize)?;
-            if let Err(e) = write(fd, buf.as_ptr() as usize as u64, l) {
+            if let Err(e) = write(fd, buf.as_ptr(), l) {
                 log::warn!("failed to writev ({}, {}, {}): {:?}", fd, vec, vlen, e);
                 return Ok(-1);
             };
@@ -925,8 +938,8 @@ impl Inner {
         len: u64,
     ) -> Result<i64, EmulatorError> {
         log::debug!("read({}, {}, {}) pc: {}", fd, buf, len, core.pc()?);
-        let host_buf = vec![0_u8; len as usize];
-        let size = match read(fd, host_buf.as_ptr() as usize as u64, len) {
+        let mut host_buf = vec![0_u8; len as usize];
+        let size = match read(fd, host_buf.as_mut_ptr(), len) {
             Ok(size) => size,
             Err(e) => {
                 log::warn!("failed to read ({}, {}, {}): {:?}", fd, buf, len, e);
@@ -1049,6 +1062,15 @@ impl Inner {
         buf_size: u64,
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, path_name, b"\x00")?;
+        if path.is_empty() {
+            log::warn!(
+                "empty path to readlink ({}, {}, {})",
+                path_name,
+                buf,
+                buf_size
+            );
+            return Ok(-1);
+        }
         log::debug!(
             "readlink({}, {}, {}) pc: {}",
             path,
@@ -1056,8 +1078,9 @@ impl Inner {
             buf_size,
             core.pc()?
         );
-        let host_buf = vec![0_u8; buf_size as usize];
-        let size = match readlink(path.as_str(), host_buf.as_ptr() as u64, buf_size) {
+        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
+        let mut host_buf = vec![0_u8; buf_size as usize];
+        let size = match readlink(cstr, host_buf.as_mut_ptr(), buf_size) {
             Ok(size) => size,
             Err(e) => {
                 log::debug!(
@@ -1080,8 +1103,13 @@ impl Inner {
         stat_buf: u64,
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, path_name, b"\x00")?;
+        if path.is_empty() {
+            log::warn!("empty path to stat ({}, {})", path_name, stat_buf);
+            return Ok(-1);
+        }
         log::debug!("stat ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_stat(path.as_str()) {
+        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
+        let host_buf = match get_stat(cstr) {
             Err(e) => {
                 log::debug!("failed to stat({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1107,8 +1135,13 @@ impl Inner {
         stat_buf: u64,
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, path_name, b"\x00")?;
+        if path.is_empty() {
+            log::warn!("empty path to stat64 ({}, {})", path_name, stat_buf);
+            return Ok(-1);
+        }
         log::debug!("stat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_stat(path.as_str()) {
+        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
+        let host_buf = match get_stat(cstr) {
             Err(e) => {
                 log::debug!("failed to stat64({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1186,8 +1219,13 @@ impl Inner {
         stat_buf: u64,
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, path_name, b"\x00")?;
+        if path.is_empty() {
+            log::warn!("empty path to lstat64 ({}, {})", path_name, stat_buf);
+            return Ok(-1);
+        }
         log::debug!("lstat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_lstat(path.as_str()) {
+        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
+        let host_buf = match get_lstat(cstr) {
             Err(e) => {
                 log::debug!("failed to lstat64 ({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1215,8 +1253,19 @@ impl Inner {
         flags: u64,
     ) -> Result<i64, EmulatorError> {
         let path = read_string(core, path_name, b"\x00")?;
+        if path.is_empty() {
+            log::warn!(
+                "empty path to fstatat64 ({}, {}, {}, {})",
+                dir_fd,
+                path_name,
+                stat_buf,
+                flags
+            );
+            return Ok(-1);
+        }
         log::debug!("fstatat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_fstatat64(dir_fd, path.as_str(), flags) {
+        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
+        let host_buf = match get_fstatat64(dir_fd, cstr, flags) {
             Err(e) => {
                 log::debug!("failed to fstatat64({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1270,27 +1319,27 @@ impl Inner {
     }
 }
 
-fn get_stat(path: &str) -> Result<StatX8664, EmulatorError> {
-    let host_buf: StatX8664 = unsafe { mem::zeroed() };
-    stat(path, (&host_buf as *const StatX8664) as u64)?;
+fn get_stat(path: *const u8) -> Result<StatX8664, EmulatorError> {
+    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    stat(path, &mut host_buf as *mut StatX8664)?;
     Ok(host_buf)
 }
 
 fn get_fstat(fd: u64) -> Result<StatX8664, EmulatorError> {
-    let host_buf: StatX8664 = unsafe { mem::zeroed() };
-    fstat(fd, (&host_buf as *const StatX8664) as u64)?;
+    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    fstat(fd, &mut host_buf as *mut StatX8664)?;
     Ok(host_buf)
 }
 
-fn get_lstat(path: &str) -> Result<StatX8664, EmulatorError> {
-    let host_buf: StatX8664 = unsafe { mem::zeroed() };
-    lstat(path, (&host_buf as *const StatX8664) as u64)?;
+fn get_lstat(path: *const u8) -> Result<StatX8664, EmulatorError> {
+    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    lstat(path, &mut host_buf as *mut StatX8664)?;
     Ok(host_buf)
 }
 
-fn get_fstatat64(dir_fd: u64, path: &str, flags: u64) -> Result<StatX8664, EmulatorError> {
-    let host_buf: StatX8664 = unsafe { mem::zeroed() };
-    fstatat64(dir_fd, path, (&host_buf as *const StatX8664) as u64, flags)?;
+fn get_fstatat64(dir_fd: u64, path: *const u8, flags: u64) -> Result<StatX8664, EmulatorError> {
+    let mut host_buf: StatX8664 = unsafe { mem::zeroed() };
+    fstatat64(dir_fd, path, &mut host_buf as *mut StatX8664, flags)?;
     Ok(host_buf)
 }
 
