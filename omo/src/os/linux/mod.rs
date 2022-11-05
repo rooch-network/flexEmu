@@ -892,7 +892,10 @@ impl Inner {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
         match write(fd, data.as_ptr(), count) {
-            Ok(size) => Ok(size),
+            Ok(size) => {
+                log::debug!("succeed to write ({}, {}, {})", fd, buf, count);
+                Ok(size)
+            }
             Err(e) => {
                 log::warn!("failed to write ({}, {}, {}): {:?}", fd, buf, count, e);
                 Ok(-1)
