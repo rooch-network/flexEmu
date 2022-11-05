@@ -25,44 +25,6 @@ pub enum LinuxSysCalls {
     Newfstatat = 262,
 }
 
-// x86_64 raw syscall.
-pub unsafe fn syscall_1(trap: u64, arg1: u64) -> i64 {
-    let res;
-    asm!(
-    "syscall",
-    in("rax") trap,
-    in("rdi") arg1,
-    lateout("rax") res,
-    );
-    res
-}
-
-pub unsafe fn syscall_2(trap: u64, arg1: u64, arg2: u64) -> i64 {
-    let res;
-    asm!(
-    "syscall",
-    in("rax") trap,
-    in("rdi") arg1,
-    in("rsi") arg2,
-    lateout("rax") res,
-    );
-    res
-}
-
-pub unsafe fn syscall_3(trap: u64, arg1: u64, arg2: u64, arg3: u64) -> i64 {
-    let res;
-    asm!(
-    "syscall",
-    in("rax") trap,
-    in("rdi") arg1,
-    in("rsi") arg2,
-    in("rdx") arg3,
-    lateout("rax") res,
-    );
-
-    res
-}
-
 pub unsafe fn syscall_4(trap: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64) -> i64 {
     let res;
     asm!(
@@ -265,7 +227,7 @@ lazy_static! {
 
 #[allow(non_camel_case_types)]
 #[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames, EnumString,
+Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, EnumVariantNames, EnumString,
 )]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
