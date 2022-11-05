@@ -1,11 +1,10 @@
 use std::{
-    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc,
-    str::FromStr,
+    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
 };
 
 use unicorn_engine::{
-    RegisterARM,
-    RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86, unicorn_const::{Arch, MemRegion, Permission, uc_error},
+    unicorn_const::{uc_error, Arch, MemRegion, Permission},
+    RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
 };
 
 use file::{open, read, write};
@@ -26,7 +25,7 @@ use crate::{
     },
     rand::{RAND_SOURCE, RAND_SOURCE_LEN},
     registers::{Registers, StackRegister},
-    utils::{align, align_up, Packer, read_string},
+    utils::{align, align_up, read_string, Packer},
 };
 
 mod file;
@@ -859,8 +858,10 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("open with flags: {}", flags);
         let mut flags = flags;
-        flags &= !(0x2000);  // trip O_ASYNC
-        if flags & 1 == 1 || flags & 2 == 2 {   // open with write
+        flags &= !(0x80000); // trip O_CLOEXEC
+        flags &= !(0x2000); // trip O_ASYNC
+        if flags & 1 == 1 || flags & 2 == 2 {
+            // open with write
             flags |= 1 << 6 // add O_CREAT
         }
         log::debug!("open with adjusted flags: {}", flags);
@@ -871,7 +872,10 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
-        match open(path.as_bytes().as_ptr(), flags, mode) {
+
+        let mut c_path = path.clone().as_bytes().to_vec();
+        c_path.extend_from_slice(b"\x00");
+        match open(c_path.as_ptr(), flags, mode) {
             Ok(fd) => {
                 log::debug!("succeed to open ({}, {}, {}) fd: {}", path, flags, mode, fd);
                 Ok(fd)
@@ -1084,7 +1088,9 @@ impl Inner {
             core.pc()?
         );
         let mut host_buf = vec![0_u8; buf_size as usize];
-        let size = match readlink(path.as_bytes().as_ptr(), host_buf.as_mut_ptr(), buf_size) {
+        let mut c_path = path.clone().as_bytes().to_vec();
+        c_path.extend_from_slice(b"\x00");
+        let size = match readlink(c_path.as_ptr(), host_buf.as_mut_ptr(), buf_size) {
             Ok(size) => size,
             Err(e) => {
                 log::debug!(
@@ -1112,7 +1118,9 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("stat ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_stat(path.as_bytes().as_ptr()) {
+        let mut c_path = path.clone().as_bytes().to_vec();
+        c_path.extend_from_slice(b"\x00");
+        let host_buf = match get_stat(c_path.as_ptr()) {
             Err(e) => {
                 log::debug!("failed to stat({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1143,7 +1151,9 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("stat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_stat(path.as_bytes().as_ptr()) {
+        let mut c_path = path.clone().as_bytes().to_vec();
+        c_path.extend_from_slice(b"\x00");
+        let host_buf = match get_stat(c_path.as_ptr()) {
             Err(e) => {
                 log::debug!("failed to stat64({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1226,7 +1236,9 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("lstat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_lstat(path.as_bytes().as_ptr()) {
+        let mut c_path = path.clone().as_bytes().to_vec();
+        c_path.extend_from_slice(b"\x00");
+        let host_buf = match get_lstat(c_path.as_ptr()) {
             Err(e) => {
                 log::debug!("failed to lstat64 ({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1265,7 +1277,9 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("fstatat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let host_buf = match get_fstatat64(dir_fd, path.as_bytes().as_ptr(), flags) {
+        let mut c_path = path.clone().as_bytes().to_vec();
+        c_path.extend_from_slice(b"\x00");
+        let host_buf = match get_fstatat64(dir_fd, c_path.as_ptr(), flags) {
             Err(e) => {
                 log::debug!("failed to fstatat64({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);

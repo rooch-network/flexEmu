@@ -16,7 +16,7 @@ pub enum EmulatorError {
 }
 
 pub fn from_raw_syscall_ret(ret: i64) -> EmulatorError {
-    EmulatorError::IOError(Error::from_raw_os_error(-ret as i32))   // raw ret is negative.
+    EmulatorError::IOError(Error::from_raw_os_error(-ret as i32)) // raw ret is negative.
 }
 
 impl From<uc_error> for EmulatorError {

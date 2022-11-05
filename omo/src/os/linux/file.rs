@@ -1,5 +1,5 @@
 use crate::{
-    errors::{EmulatorError, from_raw_syscall_ret},
+    errors::{from_raw_syscall_ret, EmulatorError},
     os::linux::syscall::*,
 };
 
@@ -67,7 +67,8 @@ pub fn readlink(path: *const u8, buf: *mut u8, buf_size: u64) -> Result<i64, Emu
             path as u64,
             buf as u64,
             buf_size,
-            0)
+            0,
+        )
     };
     if ret < 0 {
         Err(from_raw_syscall_ret(ret))
@@ -77,7 +78,15 @@ pub fn readlink(path: *const u8, buf: *mut u8, buf_size: u64) -> Result<i64, Emu
 }
 
 pub fn stat(path: *const u8, stat_buf: *mut StatX8664) -> Result<i64, EmulatorError> {
-    let ret = unsafe { syscall_4(LinuxSysCalls::Stat as u64, path as u64, stat_buf as u64, 0, 0) };
+    let ret = unsafe {
+        syscall_4(
+            LinuxSysCalls::Stat as u64,
+            path as u64,
+            stat_buf as u64,
+            0,
+            0,
+        )
+    };
     if ret < 0 {
         Err(from_raw_syscall_ret(ret))
     } else {
@@ -95,7 +104,15 @@ pub fn fstat(fd: u64, stat_buf: *mut StatX8664) -> Result<i64, EmulatorError> {
 }
 
 pub fn lstat(path: *const u8, stat_buf: *mut StatX8664) -> Result<i64, EmulatorError> {
-    let ret = unsafe { syscall_4(LinuxSysCalls::Lstat as u64, path as u64, stat_buf as u64, 0, 0) };
+    let ret = unsafe {
+        syscall_4(
+            LinuxSysCalls::Lstat as u64,
+            path as u64,
+            stat_buf as u64,
+            0,
+            0,
+        )
+    };
     if ret < 0 {
         Err(from_raw_syscall_ret(ret))
     } else {
