@@ -34,6 +34,7 @@ pub fn write(fd: u64, data: *const u8, len: u64) -> Result<i64, EmulatorError> {
 
 pub fn close(fd: u64) -> Result<i64, EmulatorError> {
     let ret = unsafe { syscall_4(LinuxSysCalls::Close as u64, fd, 0, 0, 0) };
+    log::debug!("close {}, ret: {}", fd, ret);
     if ret < 0 {
         Err(from_raw_syscall_ret(ret))
     } else {

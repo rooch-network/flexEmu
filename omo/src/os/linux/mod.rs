@@ -960,7 +960,10 @@ impl Inner {
                 log::warn!("failed to close ({}): {:?}", fd, e);
                 Ok(-1)
             }
-            _ => Ok(0),
+            _ => {
+                log::debug!("succeed to close ({})", fd);
+                Ok(0)
+            }
         }
     }
     fn lseek<'a, A: ArchT>(
