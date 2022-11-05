@@ -282,8 +282,8 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
-                let p3 = cc.get_raw_param(core, 2, None)?;
-                let p4 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 3, None)?;
+                let p4 = cc.get_raw_param(core, 4, None)?;
                 self._llseek(core, p0, p1, p2, p3, p4)?
             }
             SysCalls::FCNTL => {
