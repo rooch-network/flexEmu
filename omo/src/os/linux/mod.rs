@@ -161,7 +161,6 @@ impl Inner {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
                 let p2 = cc.get_raw_param(core, 2, None)?;
-
                 self.sched_getaffinity(core, p0, p1, p2)?
             }
             SysCalls::SCHED_YIELD => self.sched_yield(core)?,
@@ -332,8 +331,8 @@ impl Inner {
             SysCalls::FSTATAT64 => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
-                let p2 = cc.get_raw_param(core, 0, None)?;
-                let p3 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
+                let p3 = cc.get_raw_param(core, 3, None)?;
                 self.fstatat64(core, p0, p1, p2, p3)?
             }
             SysCalls::GETCWD => {
@@ -344,7 +343,7 @@ impl Inner {
             SysCalls::IOCTL => {
                 let p0 = cc.get_raw_param(core, 0, None)?;
                 let p1 = cc.get_raw_param(core, 1, None)?;
-                let p2 = cc.get_raw_param(core, 1, None)?;
+                let p2 = cc.get_raw_param(core, 2, None)?;
                 self.ioctl(core, p0, p1, p2)?
             }
 
