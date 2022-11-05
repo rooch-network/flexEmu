@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell, collections::HashMap, env, ffi::CString, mem, os::unix::ffi::OsStrExt, rc::Rc,
+    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc,
     str::FromStr,
 };
 
@@ -1078,9 +1078,8 @@ impl Inner {
             buf_size,
             core.pc()?
         );
-        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
         let mut host_buf = vec![0_u8; buf_size as usize];
-        let size = match readlink(cstr, host_buf.as_mut_ptr(), buf_size) {
+        let size = match readlink(path.as_bytes().as_ptr(), host_buf.as_mut_ptr(), buf_size) {
             Ok(size) => size,
             Err(e) => {
                 log::debug!(
@@ -1108,8 +1107,7 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("stat ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
-        let host_buf = match get_stat(cstr) {
+        let host_buf = match get_stat(path.as_bytes().as_ptr()) {
             Err(e) => {
                 log::debug!("failed to stat({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1140,8 +1138,7 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("stat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
-        let host_buf = match get_stat(cstr) {
+        let host_buf = match get_stat(path.as_bytes().as_ptr()) {
             Err(e) => {
                 log::debug!("failed to stat64({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1224,8 +1221,7 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("lstat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
-        let host_buf = match get_lstat(cstr) {
+        let host_buf = match get_lstat(path.as_bytes().as_ptr()) {
             Err(e) => {
                 log::debug!("failed to lstat64 ({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
@@ -1264,8 +1260,7 @@ impl Inner {
             return Ok(-1);
         }
         log::debug!("fstatat64 ({}, {}) pc: {}", path, stat_buf, core.pc()?);
-        let cstr = CString::new(path.as_bytes()).unwrap().as_bytes().as_ptr();
-        let host_buf = match get_fstatat64(dir_fd, cstr, flags) {
+        let host_buf = match get_fstatat64(dir_fd, path.as_bytes().as_ptr(), flags) {
             Err(e) => {
                 log::debug!("failed to fstatat64({}, {}): {:?}", path, stat_buf, e);
                 return Ok(-1);
