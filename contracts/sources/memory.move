@@ -1,5 +1,5 @@
 module omo::memory {
-    use trie::hash_value::HashValue;
+    use trie::hash_value::{HashValue, new};
     use signed_integer::bits::Bits;
     use StarcoinFramework::Vector::{length};
     use signed_integer::bits;
@@ -8,6 +8,7 @@ module omo::memory {
     use StarcoinFramework::BCS;
     use StarcoinFramework::Errors;
     use StarcoinFramework::Option;
+    use trie::hash_value;
 
     const REG_FAKE_ADDRESS_START: u64 = 0xffffffff + 1;
     struct MemoryStorage has key, store {
@@ -25,6 +26,7 @@ module omo::memory {
         storage_handle: address,
         data: trie::TrieDB,
         registers: vector<Register>,
+        root: HashValue,
     }
 
     public fun create(signer: &signer) {
@@ -39,7 +41,14 @@ module omo::memory {
              storage_handle: memory_addr,
              data: Option::extract(&mut borrow_global_mut<MemoryStorage>(memory_addr).data),
              registers: Option::extract(&mut borrow_global_mut<MemoryStorage>(memory_addr).registers),
+             root: hash_value::zero(),
          }
+    }
+    public fun set_root(mem: &mut Memory, root: HashValue) {
+        mem.root = root;
+    }
+    public fun get_root(mem: &Memory): HashValue {
+        mem.root
     }
     public fun borrow_db_mut(mem: &mut Memory): &mut trie::TrieDB {
         &mut mem.data
@@ -78,7 +87,7 @@ module omo::memory {
 
     public fun return_mem(mem: Memory)
     acquires MemoryStorage {
-        let Memory {data, storage_handle, registers} = mem;
+        let Memory {data, storage_handle, registers, root} = mem;
         Option::fill(&mut borrow_global_mut<MemoryStorage>(storage_handle).registers, registers);
         Option::fill(&mut borrow_global_mut<MemoryStorage>(storage_handle).data, data)
     }
@@ -105,7 +114,9 @@ module omo::memory {
         assert!(addr & 3 == 0, Errors::invalid_argument(MEM_ACCESS_MUTST_BE_ALIGNED_TO_4BYTES));
         let value = to_be_bytes(value);
         let key = to_be_bytes(addr >> 2);
-        trie::update(&mut mem.data, state_hash, key, value)
+        let new_root = trie::update(&mut mem.data, state_hash, key, value);
+        mem.root = new_root;
+        new_root
     }
 
     public fun read_memory_bits(mem: &Memory, state_hash: HashValue, addr: u64): Bits {

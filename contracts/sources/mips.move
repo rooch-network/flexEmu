@@ -12,8 +12,17 @@ module omo::mips {
     const REG_ZERO: u64 = 2;
     const REG_R31: u64 = 33;
     const REG_PC: u64 = 1;
+    const REG_SP: u64 = 31; // R29
     const REG_HI: u64 = 129;
     const REG_LO: u64 = 130;
+    const REG_CP0_CONFIG3: u64 = 137;
+    const REG_CP0_USERLOCAL: u64 = 138;
+
+    const REG_R2: u64 = REG_ZERO + 2;
+    const REG_R4: u64 = REG_ZERO + 4;
+    const REG_V0: u64 = REG_R2;
+    const REG_A0: u64 = REG_R4;
+    const ARG_REGS: vector<u64> = vector[REG_A0, REG_A0 + 1, REG_A0 + 2, REG_A0 + 3];
 
 
     const EXIT_ADDRESS: u64 = 0xffffffff;
@@ -36,6 +45,12 @@ module omo::mips {
     public fun set_gpr_bits(mem: &mut Memory, state_hash: HashValue, id: u64, v: Bits): HashValue {
         write_reg_bits(mem, state_hash, id + REG_ZERO, v)
     }
+    public fun get_sp(mem: &Memory, state_hash: HashValue): u64 {
+        read_reg(mem, state_hash, REG_SP)
+    }
+    public fun set_sp(mem: &mut Memory, state_hash: HashValue, v: u64): HashValue {
+        write_reg(mem, state_hash, REG_SP, v)
+    }
 
     public fun step(mem: &mut Memory, state_hash: HashValue): HashValue {
         let pc = get_pc(mem, state_hash);
@@ -45,6 +60,7 @@ module omo::mips {
         let new_state = step_pc(mem, state_hash, pc, pc + 4);
         new_state
     }
+
 
     fun handle_rtype(mem: &mut Memory, state_hash: HashValue,  pc: u64, next_pc: u64, insn: Bits): HashValue {
         let funct = bits::data(&bits::slice(insn, 5, 0));
@@ -95,7 +111,12 @@ module omo::mips {
         } else if (funct == 12) {
             // syscall
             // TODO: handle syscall
-            hash_value::new(empty<u8>())
+            let exit = false;
+            (state_hash, exit) = handle_syscall(mem, state_hash);
+            if (exit) {
+                next_pc = 0x5ead0000;
+            };
+            state_hash
         } else if (funct == 16) {
             // mfhi
             let val = read_reg_bits(mem, state_hash, REG_HI);
@@ -400,6 +421,84 @@ module omo::mips {
         let temp = temp & 0xffffffff;
         set_gpr(mem, state_hash, store_reg, temp)
     }
+
+
+    fun stack_read(mem: &Memory, state_hash: HashValue, offset: u64): u64 {
+        let addr = get_sp(mem, state_hash);
+        let data = read_memory(mem, state_hash, addr + offset);
+        data
+    }
+    fun get_param(mem: &Memory, state_hash: HashValue, index: u64): u64 {
+        // only 4 regs for params
+        if (index < 4) {
+            let v = read_reg(mem,state_hash, REG_A0 + index);
+            v
+        } else {
+            let si = index - 4;
+            let offset = (4 + si) * 4;
+            stack_read(mem, state_hash, offset)
+        }
+    }
+    fun set_retvalue(mem: &mut Memory, retvalue: u64) {
+        write_reg(mem, hash_value::zero(), REG_V0,  retvalue);
+        write_reg(mem, hash_value::zero(), REG_A0 + 3, 0);
+    }
+
+    fun handle_syscall(mem: &mut Memory, state_hash: HashValue): bool {
+        let sysno = read_reg(mem, state_hash, REG_V0);
+
+        let ret_value = if (sysno == 4000) { // syscall
+            0
+        } else if (sysno == 4001) { // exit
+            0
+        } else if (sysno == 4283) { // set_thread_area
+            let p0 = get_param(mem, state_hash, 0);
+            set_thread_area(mem, p0)
+        }  else {0};
+        set_retvalue(mem, ret_value);
+        false
+    }
+
+    fun set_thread_area(mem: &mut Memory, u_info_addr: u64): u64 {
+        write_reg(mem, hash_value::zero(), REG_CP0_CONFIG3, 1 << 13);
+        write_reg(mem, hash_value::zero(), REG_CP0_USERLOCAL, u_info_addr);
+        write_reg(mem, hash_value::zero(), REG_V0, 0);
+        write_reg(mem, hash_value::zero(), REG_A0 + 3, 0);
+        0
+    }
+    fun set_tid_address(mem: &mut Memory, tidptr: u64): u64 {
+        42
+    }
+    fun poll(mem: &mut Memory): u64 {
+        0
+    }
+    fun rt_sigaction(mem: &mut Memory, signum: u64, act: u64, oldact: u64): u64 {
+        // TODO
+        0
+    }
+    fun rt_sigprocmask(mem: &mut Memory, how: u64,
+                       nset: u64,
+                       oset: u64,
+                       sigsetsize: u64,) : u64 {
+        0
+    }
+    fun sigaltstack(mem: &mut Memory, ss: u64,
+                    oss: u64,): u64 {
+        0
+    }
+    fun sigreturn(mem: &mut Memory): u64 {
+        0
+    }
+
+    fun brk(mem: &mut Memory, inp: u64): u64 {
+        // TODO
+        0
+    }
+    fun get_random(mem: &mut Memory, buf: u64, buf_len: u64): u64 {
+
+    }
+
+
 }
 
 //module omo::utils {

@@ -916,18 +916,28 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
-        let size = write(fd, data.as_ptr(), count);
-        if size < 0 {
-            log::warn!(
-                "failed to write ({}, {}, {}): {:?}",
-                fd,
-                buf,
-                count,
-                from_raw_syscall_ret(size)
-            );
+
+        if fd == 1 {
+            stdout().write(&data).unwrap();
+            Ok(count as i64)
+        } else if fd == 2 {
+            stderr().write(&data).unwrap();
+            Ok(count as i64)
+        } else {
+            let size = write(fd, data.as_ptr(), count);
+            if size < 0 {
+                log::warn!(
+                    "failed to write ({}, {}, {}): {:?}",
+                    fd,
+                    buf,
+                    count,
+                    from_raw_syscall_ret(size)
+                );
+            }
+            Ok(size)
         }
-        Ok(size)
     }
+
     fn writev<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
