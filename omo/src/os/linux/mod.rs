@@ -1157,7 +1157,6 @@ impl Inner {
             return Ok(ret);
         }
         let mut stat = StatMIPS::default();
-        stat.st_ino = host_buf.st_ino as u32;
         stat.st_size = host_buf.st_size as u32;
         stat.st_mode = host_buf.st_mode;
         Memory::write_ptr(
@@ -1193,7 +1192,6 @@ impl Inner {
             return Ok(ret);
         }
         let mut stat = Stat64MIPS::default();
-        stat.st_ino = host_buf.st_ino;
         stat.st_size = host_buf.st_size as u64;
         stat.st_mode = host_buf.st_mode;
         Memory::write_ptr(
@@ -1222,7 +1220,6 @@ impl Inner {
             return Ok(ret);
         }
         let mut stat = StatMIPS::default();
-        stat.st_ino = host_buf.st_ino as u32;
         stat.st_size = host_buf.st_size as u32;
         stat.st_mode = host_buf.st_mode;
         Memory::write_ptr(
@@ -1251,7 +1248,6 @@ impl Inner {
             return Ok(-1);
         }
         let mut stat = Stat64MIPS::default();
-        stat.st_ino = host_buf.st_ino;
         stat.st_size = host_buf.st_size as u64;
         stat.st_mode = host_buf.st_mode;
         Memory::write_ptr(
@@ -1287,7 +1283,6 @@ impl Inner {
             return Ok(ret);
         }
         let mut stat = Stat64MIPS::default();
-        stat.st_ino = host_buf.st_ino;
         stat.st_size = host_buf.st_size as u64;
         stat.st_mode = host_buf.st_mode;
         Memory::write_ptr(
@@ -1331,7 +1326,6 @@ impl Inner {
             return Ok(ret);
         }
         let mut stat = Stat64MIPS::default();
-        stat.st_ino = host_buf.st_ino;
         stat.st_size = host_buf.st_size as u64;
         stat.st_mode = host_buf.st_mode;
         Memory::write_ptr(
