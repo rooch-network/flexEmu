@@ -639,14 +639,16 @@ impl Inner {
         pgoffset: u64, // TODO no fd supports yet
         _ver: u8,
     ) -> Result<i64, uc_error> {
+        let fd = fd as i32;
+
         log::debug!(
             "[mmap2] {}, {}, {}, {}, {}, {}",
-            &addr,
-            &length,
-            &prot,
-            &flags,
-            &fd,
-            &pgoffset
+            addr,
+            length,
+            prot,
+            flags,
+            fd,
+            pgoffset
         );
         const MAP_FAILED: i64 = -1;
 
@@ -710,7 +712,9 @@ impl Inner {
             }
         }
         // TODO: should handle fd?
-        log::warn!("[mmap2] fd {} not handled", fd);
+        if fd != -1 {
+            log::warn!("[mmap2] fd {} not handled", fd);
+        }
         Ok(mmap_base as i64)
     }
     fn mremap<'a, A: ArchT>(
@@ -1344,6 +1348,7 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("getcwd ({}, {}) pc: {}", buf, size, core.pc()?);
         let dir = match env::current_dir() {
+            // omo should run on same env.
             Err(e) => {
                 log::debug!("failed to getcwd ({}, {}): {:?}", buf, size, e);
                 return Ok(-1);
