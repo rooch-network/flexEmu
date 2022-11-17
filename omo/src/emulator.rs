@@ -68,12 +68,18 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
             },
         )?;
 
-        // machine.add_code_hook(0, u32::MAX as u64, {
-        //     |uc, addr, size| {
-        //         info!("code hook, {} {}, pc {}", addr, size, uc.pc_read().unwrap());
-        //         uc.get_data_mut().state.steps += 1;
-        //     }
-        // })?;
+        machine.add_code_hook(0, u32::MAX as u64, {
+            |uc, addr, size| {
+                info!(
+                    "step {}, {} {}, pc {}",
+                    uc.get_data().state.steps,
+                    addr,
+                    size,
+                    uc.pc_read().unwrap()
+                );
+                uc.get_data_mut().state.steps += 1;
+            }
+        })?;
 
         // machine.add_block_hook(|uc, addr, size| {
         //     info!("block hook, {} {}", addr, size);
