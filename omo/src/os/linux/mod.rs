@@ -694,7 +694,7 @@ impl Inner {
             log::debug!(
                 "[mmap2] mapping for [{},{})",
                 mmap_base,
-                mmap_size + mmap_size
+                mmap_base + mmap_size
             );
             Memory::mem_map(
                 core,
@@ -710,6 +710,11 @@ impl Inner {
             if arch == Arch::MIPS {
                 Memory::write(core, mmap_base as u64, vec![0u8; mmap_size as usize])?;
             }
+            log::debug!(
+                "[mmap2] mapped for [{},{})",
+                mmap_base,
+                mmap_base + mmap_size
+            );
         }
         // TODO: should handle fd?
         if fd != -1 {
