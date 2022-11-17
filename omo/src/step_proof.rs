@@ -51,6 +51,17 @@ pub fn generate_step_proof(change: StateChange) -> StepProof {
         //         .unwrap();
         // }
 
+        // insert registers as
+        let regs_before = {
+            let mut encoder = rlp::RlpStream::new_list(state_before.regs.len());
+            for (reg_id, v) in state_before.regs.clone() {
+                let encoded_register = ((reg_id as u64) << 32) + v;
+                encoder.append_iter(encoded_register.to_be_bytes());
+            }
+            encoder.out().to_vec()
+        };
+        trie.insert(&0u32.to_be_bytes(), &regs_before).unwrap();
+
         trie.commit();
 
         // for (reg_id, v) in state_before.regs {
@@ -89,19 +100,16 @@ pub fn generate_step_proof(change: StateChange) -> StepProof {
                 assert!(read_result.is_some());
             }
         }
-        // for (reg_id, v) in state_after.regs.clone() {
-        //     let addr = ((REG_START_ADDR + (reg_id as u64) * 4) >> 2) as u32;
-        //     trie.insert(&addr.to_be_bytes(), &(v as u32).to_be_bytes())
-        //         .unwrap();
-        // }
-        // for (reg_id, v) in state_after.regs {
-        //     let addr = ((REG_START_ADDR + (reg_id as u64) * 4) >> 2) as u32;
-        //     let read_back = trie.get(&addr.to_be_bytes()).unwrap().unwrap();
-        //     let read_back =
-        //         u32::from_be_bytes(*read_back.as_slice().as_chunks::<4>().0.first().unwrap());
-        //     assert_eq!(v, read_back as u64);
-        //     println!("after, reg {}: {}", reg_id, read_back);
-        // }
+        trie.get(0u32.to_be_bytes().as_slice()).unwrap();
+        let regs_after = {
+            let mut encoder = rlp::RlpStream::new_list(state_after.regs.len());
+            for (reg_id, v) in state_after.regs.clone() {
+                let encoded_register = ((reg_id as u64) << 32) + v;
+                encoder.append_iter(encoded_register.to_be_bytes());
+            }
+            encoder.out().to_vec()
+        };
+        trie.insert(&0u32.to_be_bytes(), &regs_after).unwrap();
         trie.commit();
         drop(trie);
         recorder.drain()
