@@ -1,3 +1,4 @@
+use log::info;
 use std::{
     cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
 };
@@ -107,6 +108,7 @@ impl Inner {
         syscall: SysCalls,
     ) -> Result<(), EmulatorError> {
         assert_eq!(core.get_arch(), Arch::MIPS, "only support mips for now");
+        info!("handle syscall, {:?}", syscall);
         let cc = core.get_data().env().cc();
         let retvalue = match syscall {
             SysCalls::SET_THREAD_AREA => {
