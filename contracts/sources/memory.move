@@ -9,12 +9,22 @@ module omo::memory {
     use StarcoinFramework::Errors;
     use StarcoinFramework::Option;
     use trie::hash_value;
+    use trie::rlp;
+    use trie::rlp_stream;
+
+    const MISSING_REG_DATA: u64 = 200;
+    const MEM_ACCESS_MUTST_BE_ALIGNED_TO_4BYTES: u64 = 401;
+    const BITS_LEN_OUT_OF_BOUND: u64 = 601;
+    const ELEM_NOT_FOUND: u64 = 701;
 
     const REG_FAKE_ADDRESS_START: u64 = 0xffffffff + 1;
+
+
     struct MemoryStorage has key, store {
         data: Option::Option<trie::TrieDB>,
-        registers: Option::Option<vector<Register>>,
     }
+
+    const REG_KEY: vector<u8> = vector[0,0,0,0];
     struct Register has store, drop, copy {
         id: u64,
         value: u64
@@ -32,40 +42,101 @@ module omo::memory {
     public fun create(signer: &signer) {
         move_to(signer, MemoryStorage {
             data: Option::some(trie::new()),
-            registers: Option::some(Vector::empty())
         })
     }
 
-    public fun get_mem(memory_addr: address): Memory acquires MemoryStorage {
-         Memory {
+    public fun batch_add_trie_data(mem_addr: address, data: vector<vector<u8>>) acquires MemoryStorage {
+        let db = borrow_global_mut<MemoryStorage>(mem_addr);
+        {
+            let db = Option::borrow_mut(&mut db.data);
+            let i = Vector::length(&data);
+            while (i != 0) {
+                trie::add_raw_node(db, Vector::pop_back(&mut data));
+                i = i - 1;
+            };
+        };
+    }
+
+    public fun get_mem(memory_addr: address, state_root: HashValue): Memory acquires MemoryStorage {
+         let mem = Memory {
              storage_handle: memory_addr,
              data: Option::extract(&mut borrow_global_mut<MemoryStorage>(memory_addr).data),
-             registers: Option::extract(&mut borrow_global_mut<MemoryStorage>(memory_addr).registers),
-             root: hash_value::zero(),
-         }
+             registers: Vector::empty(),
+             root: state_root,
+         };
+        recover_registers(&mut mem);
+        mem
     }
-    public fun set_root(mem: &mut Memory, root: HashValue) {
-        mem.root = root;
+    fun recover_registers(mem: &mut Memory) {
+        let v = trie::get(&mem.data, mem.root, &REG_KEY);
+        if (Option::is_none(&v)) {
+            abort Errors::invalid_state(MISSING_REG_DATA)
+        } else {
+            let register_data = Option::destroy_some(v);
+
+            let r = rlp::new(register_data);
+            let vl = rlp::as_valuelist(&r);
+            let i =0;
+            while (i < Vector::length(&vl)) {
+                let d = from_be_bytes(Vector::borrow(&vl, i));
+                let id = d >> 32;
+                let v = (d << 32) >> 32;
+                set_register(mem, id, v);
+                i = i + 1;
+            };
+        }
     }
-    public fun get_root(mem: &Memory): HashValue {
-        mem.root
+
+    fun serialize_registers(regs: &vector<Register>): vector<u8> {
+        let ser = rlp_stream::new_list(length(regs));
+        let i = 0;
+        while (i < length(regs)) {
+            let reg = Vector::borrow(regs, i);
+
+            let encoded_reg = {
+                let encoded_reg = (reg.id << 32) + reg.value;
+                let encoded = BCS::to_bytes(&encoded_reg);
+                Vector::reverse(&mut encoded);
+                encoded
+            };
+            rlp_stream::append(&mut ser, encoded_reg);
+            i = i + 1;
+        };
+        rlp_stream::out(ser)
     }
+
+    public fun return_mem(mem: Memory): HashValue
+    acquires MemoryStorage {
+        let Memory {data, storage_handle, registers, root} = mem;
+        let root = trie::update(&mut data, root, REG_KEY, serialize_registers(&registers));
+        Option::fill(&mut borrow_global_mut<MemoryStorage>(storage_handle).data, data);
+        root
+    }
+
+
     public fun borrow_db_mut(mem: &mut Memory): &mut trie::TrieDB {
         &mut mem.data
     }
-    public fun set_register(mem: &mut Memory, id: u64, v: u64) {
-        let i = 0;
-        while (i < length(&mem.registers)) {
-            let elem = Vector::borrow(&mem.registers, i);
-            if (elem.id == id) {
+
+    /// Set register, and make sure the vec is sorted by register id
+    fun set_register(mem: &mut Memory, id: u64, v: u64) {
+        let temp = Vector::empty();
+        while (!Vector::is_empty(&mem.registers)){
+            let e = Vector::pop_back(&mut mem.registers);
+            if (e.id > id) {
+                Vector::push_back(&mut mem.registers, e);
                 break
-            };
-            i = i+1;
+            } else if (e.id == id) {
+                break
+            } else {
+                Vector::push_back(&mut temp, e);
+            }
         };
-        if (i >= length(&mem.registers)) {
-            Vector::push_back(&mut mem.registers, Register {id, value: v});
-        } else {
-            Vector::borrow_mut(&mut mem.registers, i).value = v;
+
+        Vector::push_back(&mut mem.registers, Register {id, value: v});
+        if (!Vector::is_empty(&temp)) {
+            Vector::reverse(&mut temp);
+            Vector::append(&mut mem.registers, temp);
         }
     }
     public fun get_register(mem: &Memory, id: u64): u64 {
@@ -73,26 +144,18 @@ module omo::memory {
         while (i < length(&mem.registers)) {
             let elem = Vector::borrow(&mem.registers, i);
             if (elem.id == id) {
-                break
+                return elem.value
+            } else if (elem.id > id) {
+                // default to 0, if not found
+                return 0
             };
             i = i+1;
         };
-        if (i >= length(&mem.registers)) {
-
-            0
-        } else {
-            Vector::borrow(&mem.registers, i).value
-        }
+        // default to 0, if not found
+        0
     }
 
-    public fun return_mem(mem: Memory)
-    acquires MemoryStorage {
-        let Memory {data, storage_handle, registers, root} = mem;
-        Option::fill(&mut borrow_global_mut<MemoryStorage>(storage_handle).registers, registers);
-        Option::fill(&mut borrow_global_mut<MemoryStorage>(storage_handle).data, data)
-    }
 
-    const MEM_ACCESS_MUTST_BE_ALIGNED_TO_4BYTES: u64 = 401;
 
     /// Read memory in four-bytes and convert it to u32 as big-endian representation.
     public fun read_memory(mem: &Memory, state_hash: HashValue, addr: u64): u64 {
@@ -123,7 +186,7 @@ module omo::memory {
         bits::from_u64(read_memory(mem, state_hash, addr), 32)
     }
 
-    const BITS_LEN_OUT_OF_BOUND: u64 = 601;
+
     public fun write_memory_bits(mem: &mut Memory, state_hash: HashValue, addr: u64, bits: Bits): HashValue {
         assert!(bits::len(&bits) <= 32, Errors::invalid_argument(BITS_LEN_OUT_OF_BOUND));
         let full_32bits = bits::ze(bits, 32);

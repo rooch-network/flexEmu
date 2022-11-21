@@ -18,11 +18,12 @@ module omo::mips {
     const REG_CP0_CONFIG3: u64 = 137;
     const REG_CP0_USERLOCAL: u64 = 138;
 
-    const REG_R2: u64 = REG_ZERO + 2;
-    const REG_R4: u64 = REG_ZERO + 4;
-    const REG_V0: u64 = REG_R2;
-    const REG_A0: u64 = REG_R4;
-    const ARG_REGS: vector<u64> = vector[REG_A0, REG_A0 + 1, REG_A0 + 2, REG_A0 + 3];
+    const REG_R2: u64 = 4;
+    const REG_R4: u64 = 6;
+    const REG_V0: u64 = 4;
+    const REG_A0: u64 = 6;
+    /// vector[REG_A0, REG_A0 + 1, REG_A0 + 2, REG_A0 + 3];
+    const ARG_REGS: vector<u64> = vector[6, 7,8,9];
 
 
     const EXIT_ADDRESS: u64 = 0xffffffff;
@@ -112,7 +113,7 @@ module omo::mips {
             // syscall
             // TODO: handle syscall
             let exit = false;
-            (state_hash, exit) = handle_syscall(mem, state_hash);
+            exit = handle_syscall(mem, state_hash);
             if (exit) {
                 next_pc = 0x5ead0000;
             };
@@ -495,7 +496,7 @@ module omo::mips {
         0
     }
     fun get_random(mem: &mut Memory, buf: u64, buf_len: u64): u64 {
-
+        0
     }
 
 

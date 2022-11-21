@@ -1,6 +1,7 @@
 use log::info;
 use std::{
-    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
+    cell::RefCell, collections::HashMap, env, io::Write, mem, os::unix::ffi::OsStrExt, rc::Rc,
+    str::FromStr,
 };
 
 use unicorn_engine::{
@@ -918,10 +919,10 @@ impl Inner {
         let data = Memory::read(core, buf, count as usize)?;
 
         if fd == 1 {
-            stdout().write(&data).unwrap();
+            std::io::stdout().write(&data).unwrap();
             Ok(count as i64)
         } else if fd == 2 {
-            stderr().write(&data).unwrap();
+            std::io::stderr().write(&data).unwrap();
             Ok(count as i64)
         } else {
             let size = write(fd, data.as_ptr(), count);
