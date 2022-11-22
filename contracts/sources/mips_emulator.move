@@ -33,8 +33,8 @@ module omo::mips_emulator {
     public fun run(emulator: address, state_root: vector<u8>): vector<u8> {
         let mem = memory::get_mem(emulator,  hash_value::new(state_root));
         let root = hash_value::new(state_root);
-        let new_root = mips::step(&mut mem, root);
-        memory::return_mem(mem);
+        mips::step(&mut mem, root);
+        let new_root = memory::return_mem(mem);
         hash_value::to_bytes(new_root)
     }
 }

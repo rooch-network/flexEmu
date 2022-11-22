@@ -1,5 +1,5 @@
 module omo::memory {
-    use trie::hash_value::{HashValue, new};
+    use trie::hash_value::{HashValue};
     use signed_integer::bits::Bits;
     use StarcoinFramework::Vector::{length};
     use signed_integer::bits;
@@ -8,7 +8,6 @@ module omo::memory {
     use StarcoinFramework::BCS;
     use StarcoinFramework::Errors;
     use StarcoinFramework::Option;
-    use trie::hash_value;
     use trie::rlp;
     use trie::rlp_stream;
 
@@ -65,6 +64,7 @@ module omo::memory {
              root: state_root,
          };
         recover_registers(&mut mem);
+        StarcoinFramework::Debug::print(&mem.registers);
         mem
     }
     fun recover_registers(mem: &mut Memory) {
@@ -88,6 +88,7 @@ module omo::memory {
     }
 
     fun serialize_registers(regs: &vector<Register>): vector<u8> {
+        StarcoinFramework::Debug::print(regs);
         let ser = rlp_stream::new_list(length(regs));
         let i = 0;
         while (i < length(regs)) {
@@ -108,7 +109,9 @@ module omo::memory {
     public fun return_mem(mem: Memory): HashValue
     acquires MemoryStorage {
         let Memory {data, storage_handle, registers, root} = mem;
-        let root = trie::update(&mut data, root, REG_KEY, serialize_registers(&registers));
+        let ser_regs = serialize_registers(&registers);
+        StarcoinFramework::Debug::print(&ser_regs);
+        let root = trie::update(&mut data, root, REG_KEY, ser_regs);
         Option::fill(&mut borrow_global_mut<MemoryStorage>(storage_handle).data, data);
         root
     }
@@ -123,7 +126,7 @@ module omo::memory {
         let temp = Vector::empty();
         while (!Vector::is_empty(&mem.registers)){
             let e = Vector::pop_back(&mut mem.registers);
-            if (e.id > id) {
+            if (e.id < id) {
                 Vector::push_back(&mut mem.registers, e);
                 break
             } else if (e.id == id) {

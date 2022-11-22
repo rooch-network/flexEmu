@@ -16,11 +16,6 @@ pub struct StepProof {
     root_after: [u8; 32],
     #[serde(with = "HexForm")]
     access_nodes: Vec<u8>,
-
-    #[serde(with = "HexForm")]
-    regs_before: Vec<u8>,
-    #[serde(with = "HexForm")]
-    regs_after: Vec<u8>,
 }
 
 pub fn generate_step_proof(change: StateChange) -> StepProof {
@@ -44,14 +39,8 @@ pub fn generate_step_proof(change: StateChange) -> StepProof {
             trie.insert(&shortend_addr.to_be_bytes(), v.as_slice())
                 .unwrap();
         }
-        // FIXME: ignore register for now, as there is no way to get the reg access when executing a single step.
-        // for (reg_id, v) in state_before.regs.clone() {
-        //     let addr = ((REG_START_ADDR + (reg_id as u64) * 4) >> 2) as u32;
-        //     trie.insert(&addr.to_be_bytes(), &(v as u32).to_be_bytes())
-        //         .unwrap();
-        // }
 
-        // insert registers as
+        // insert registers as a leaf with key [0,0,0,0]
         let regs_before = {
             let mut encoder = rlp::RlpStream::new_list(state_before.regs.len());
             for (reg_id, v) in state_before.regs.clone() {
@@ -136,28 +125,10 @@ pub fn generate_step_proof(change: StateChange) -> StepProof {
     //         "root_after should be equal to trie root"
     //     );
     // }
-    let regs_before = {
-        let mut encoder = rlp::RlpStream::new_list(state_before.regs.len());
-        for (reg_id, v) in state_before.regs.clone() {
-            let encoded_register = ((reg_id as u64) << 32) + v;
-            encoder.append_iter(encoded_register.to_be_bytes());
-        }
-        encoder.out().to_vec()
-    };
-    let regs_after = {
-        let mut encoder = rlp::RlpStream::new_list(state_after.regs.len());
-        for (reg_id, v) in state_after.regs.clone() {
-            let encoded_register = ((reg_id as u64) << 32) + v;
-            encoder.append_iter(encoded_register.to_be_bytes());
-        }
-        encoder.out().to_vec()
-    };
 
     StepProof {
         root_before,
         root_after,
         access_nodes: encoded_nodes.out().to_vec(),
-        regs_before,
-        regs_after,
     }
 }

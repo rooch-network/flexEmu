@@ -111,8 +111,7 @@ module omo::mips {
         } else if (funct == 12) {
             // syscall
             // TODO: handle syscall
-            let exit = false;
-            exit = handle_syscall(mem, state_hash);
+            let exit = handle_syscall(mem, state_hash);
             if (exit) {
                 next_pc = 0x5ead0000;
             };
@@ -497,36 +496,36 @@ module omo::mips {
         write_reg(mem, hash_value::zero(), REG_A0 + 3, 0);
         0
     }
-    fun set_tid_address(mem: &mut Memory, tidptr: u64): u64 {
+    fun set_tid_address(_mem: &mut Memory, _tidptr: u64): u64 {
         42
     }
-    fun poll(mem: &mut Memory): u64 {
+    fun poll(_mem: &mut Memory): u64 {
         0
     }
-    fun rt_sigaction(mem: &mut Memory, signum: u64, act: u64, oldact: u64): u64 {
+    fun rt_sigaction(_mem: &mut Memory, _signum: u64, _act: u64, _oldact: u64): u64 {
         // TODO
         0
     }
-    fun rt_sigprocmask(mem: &mut Memory,
-                       how: u64,
-                       nset: u64,
-                       oset: u64,
-                       sigsetsize: u64,) : u64 {
+    fun rt_sigprocmask(_mem: &mut Memory,
+                       _how: u64,
+                       _nset: u64,
+                       _oset: u64,
+                       _sigsetsize: u64,) : u64 {
         0
     }
-    fun sigaltstack(mem: &mut Memory, ss: u64,
-                    oss: u64,): u64 {
+    fun sigaltstack(_mem: &mut Memory, _ss: u64,
+                    _oss: u64,): u64 {
         0
     }
-    fun sigreturn(mem: &mut Memory): u64 {
+    fun sigreturn(_mem: &mut Memory): u64 {
         0
     }
 
-    fun brk(mem: &mut Memory, inp: u64): u64 {
+    fun brk(_mem: &mut Memory, _inp: u64): u64 {
         // TODO
         0
     }
-    fun getrandom(mem: &mut Memory, buf: u64, buf_len: u64): u64 {
+    fun getrandom(_mem: &mut Memory, _buf: u64, _buf_len: u64): u64 {
         0
     }
 
