@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, io::Error};
 
 use thiserror::Error;
 use unicorn_engine::unicorn_const::uc_error;
@@ -13,6 +13,10 @@ pub enum EmulatorError {
     IOError(#[from] io::Error),
     #[error("custom error {0}")]
     Custom(#[from] anyhow::Error),
+}
+
+pub fn from_raw_syscall_ret(ret: i64) -> EmulatorError {
+    EmulatorError::IOError(Error::from_raw_os_error(-ret as i32)) // raw ret is negative.
 }
 
 impl From<uc_error> for EmulatorError {
