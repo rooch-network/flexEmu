@@ -1,6 +1,5 @@
 /// Mips Reference impl. https://inst.eecs.berkeley.edu/~cs61c/resources/MIPS_help.html
 module omo::mips {
-    use StarcoinFramework::Vector::{empty};
     use signed_integer::bits;
     use signed_integer::bits::{Bits, se, left_shift};
     use signed_integer::i64;
@@ -455,7 +454,38 @@ module omo::mips {
         } else if (sysno == 4283) { // set_thread_area
             let p0 = get_param(mem, state_hash, 0);
             set_thread_area(mem, p0)
-        }  else {0};
+        } else if (sysno == 4252) {
+            let p0 = get_param(mem, state_hash, 0);
+            set_tid_address(mem, p0)
+        } else if (sysno == 4188) {
+            poll(mem)
+        } else if (sysno == 4194){
+            let p0 = get_param(mem, state_hash, 0);
+            let p1 = get_param(mem, state_hash, 1);
+            let p2 = get_param(mem, state_hash, 2);
+            rt_sigaction(mem, p0, p1, p2)
+        } else if (sysno == 4195) {
+            let p0 = get_param(mem, state_hash, 0);
+            let p1 = get_param(mem, state_hash, 1);
+            let p2 = get_param(mem, state_hash, 2);
+            let p3 = get_param(mem, state_hash, 3);
+
+            rt_sigprocmask(mem, p0,p1,p2,p3)
+        } else if (sysno == 4206) {
+            let p0 = get_param(mem, state_hash, 0);
+            let p1 = get_param(mem, state_hash, 1);
+            sigaltstack(mem, p0, p1)
+        } else if (sysno == 4119) {
+            sigreturn(mem)
+        } else if (sysno == 4045) {
+            let p0 = get_param(mem, state_hash, 0);
+            brk(mem, p0)
+        } else if (sysno == 4353) {
+            let p0 = get_param(mem, state_hash, 0);
+            let p1 = get_param(mem, state_hash, 1);
+            getrandom(mem, p0, p1)
+        }
+        else {0};
         set_retvalue(mem, ret_value);
         false
     }
@@ -477,7 +507,8 @@ module omo::mips {
         // TODO
         0
     }
-    fun rt_sigprocmask(mem: &mut Memory, how: u64,
+    fun rt_sigprocmask(mem: &mut Memory,
+                       how: u64,
                        nset: u64,
                        oset: u64,
                        sigsetsize: u64,) : u64 {
@@ -495,7 +526,7 @@ module omo::mips {
         // TODO
         0
     }
-    fun get_random(mem: &mut Memory, buf: u64, buf_len: u64): u64 {
+    fun getrandom(mem: &mut Memory, buf: u64, buf_len: u64): u64 {
         0
     }
 
