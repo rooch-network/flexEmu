@@ -2,6 +2,12 @@ module trie::hash_value {
     use StarcoinFramework::Vector;
     use trie::byte_utils;
 
+    const ZERO: vector<u8> = vector[
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0
+    ];
     struct HashValue has store, copy, drop {
         // 32 * 8
         value: vector<u8>,
@@ -10,6 +16,9 @@ module trie::hash_value {
     public fun new(value: vector<u8>): HashValue {
         assert!(Vector::length(&value) == 32, 1);
         HashValue {value}
+    }
+    public fun zero(): HashValue {
+        new(ZERO)
     }
     public fun bytes(hash: &HashValue): &vector<u8> {
         &hash.value
