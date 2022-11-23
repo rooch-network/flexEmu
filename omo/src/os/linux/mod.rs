@@ -917,26 +917,17 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
-
-        if fd == 1 {
-            std::io::stdout().write(&data).unwrap();
-            Ok(count as i64)
-        } else if fd == 2 {
-            std::io::stderr().write(&data).unwrap();
-            Ok(count as i64)
-        } else {
-            let size = write(fd, data.as_ptr(), count);
-            if size < 0 {
-                log::warn!(
-                    "failed to write ({}, {}, {}): {:?}",
-                    fd,
-                    buf,
-                    count,
-                    from_raw_syscall_ret(size)
-                );
-            }
-            Ok(size)
+        let size = write(fd, data.as_ptr(), count);
+        if size < 0 {
+            log::warn!(
+                "failed to write ({}, {}, {}): {:?}",
+                fd,
+                buf,
+                count,
+                from_raw_syscall_ret(size)
+            );
         }
+        Ok(size)
     }
 
     fn writev<'a, A: ArchT>(
