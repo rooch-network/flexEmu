@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use strum::{EnumString, EnumVariantNames};
 use unicorn_engine::unicorn_const::Arch;
 
+use crate::errors::from_raw_syscall_ret;
+
 // x86_64 syscall trap.
 #[repr(u64)]
 pub enum LinuxSysCalls {
@@ -25,62 +27,18 @@ pub enum LinuxSysCalls {
     Newfstatat = 262,
 }
 
-// x86_64 raw syscall.
-pub fn syscall_1(trap: u64, arg1: u64) -> i64 {
+pub unsafe fn syscall_4(trap: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64) -> i64 {
     let res;
-    unsafe {
-        asm!(
-        "syscall",
-        in("rax") trap,
-        in("rdi") arg1,
-        lateout("rax") res,
-        );
-    }
-    res
-}
+    asm!(
+    "syscall",
+    in("rax") trap,
+    in("rdi") arg1,
+    in("rsi") arg2,
+    in("rdx") arg3,
+    in("r10") arg4,
+    lateout("rax") res,
+    );
 
-pub fn syscall_2(trap: u64, arg1: u64, arg2: u64) -> i64 {
-    let res;
-    unsafe {
-        asm!(
-        "syscall",
-        in("rax") trap,
-        in("rdi") arg1,
-        in("rsi") arg2,
-        lateout("rax") res,
-        );
-    }
-    res
-}
-
-pub fn syscall_3(trap: u64, arg1: u64, arg2: u64, arg3: u64) -> i64 {
-    let res;
-    unsafe {
-        asm!(
-        "syscall",
-        in("rax") trap,
-        in("rdi") arg1,
-        in("rsi") arg2,
-        in("rdx") arg3,
-        lateout("rax") res,
-        );
-    }
-    res
-}
-
-pub fn syscall_4(trap: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64) -> i64 {
-    let res;
-    unsafe {
-        asm!(
-        "syscall",
-        in("rax") trap,
-        in("rdi") arg1,
-        in("rsi") arg2,
-        in("rdx") arg3,
-        in("r10") arg4,
-        lateout("rax") res,
-        );
-    }
     res
 }
 
@@ -324,28 +282,4 @@ pub enum SysCalls {
     GETCWD,
     IOCTL,
     WRITEV,
-}
-
-impl SysCalls {
-    pub fn param_num(&self) -> usize {
-        match self {
-            Self::WRITE => 3,
-            SysCalls::SET_THREAD_AREA => 1,
-            SysCalls::SET_TID_ADDRESS => 1,
-            SysCalls::POLL => 3,
-            SysCalls::RT_SIGACTION => 3,
-            SysCalls::RT_SIGPROCMASK => 4,
-            SysCalls::SIGALTSTACK => 2,
-            SysCalls::SIGRETURN => 0,
-            SysCalls::RT_SIGRETURN => 0,
-            SysCalls::BRK => 1,
-            SysCalls::EXIT_GROUP => 1,
-            SysCalls::GETRANDOM => 1,
-            SysCalls::FUTEX => 6,
-            SysCalls::SCHED_GETAFFINITY => 3,
-            SysCalls::SCHED_YIELD => 0,
-            SysCalls::TKILL => 3,
-            _ => todo!(),
-        }
-    }
 }

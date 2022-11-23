@@ -111,6 +111,7 @@ fn main() -> Result<(), EmulatorError> {
             info!("load info: {:?}", &load_info);
 
             let state_change = emu.run_until(load_info.entrypoint, None, None, steps.get() - 1)?;
+
             let output_dir = output_dir
                 .unwrap_or(env::current_dir().unwrap())
                 .join(format!("step-{}", steps));
@@ -143,6 +144,17 @@ fn main() -> Result<(), EmulatorError> {
                     .open(output_dir.join("mem_access.json"))
                     .unwrap(),
                 &state_change.access,
+            )
+            .unwrap();
+            let step_proof = generate_step_proof(state_change);
+            serde_json::to_writer_pretty(
+                std::fs::File::options()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(output_dir.join("step-proof.json"))
+                    .unwrap(),
+                &step_proof,
             )
             .unwrap();
         }
