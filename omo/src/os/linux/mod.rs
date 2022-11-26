@@ -1,4 +1,3 @@
-use log::info;
 use std::{
     cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
 };
@@ -718,7 +717,7 @@ impl Inner {
                 mmap_base + mmap_size
             );
         }
-        // TODO: should handle fd?
+
         if fd != -1 {
             log::warn!("[mmap2] fd {} not handled", fd);
         }
@@ -749,7 +748,7 @@ impl Inner {
         addr: u64,
         length: u64,
     ) -> Result<i64, uc_error> {
-        log::debug!("[munmap] addr: {:#x}, length: {:#x}", addr, length);
+        log::debug!("[munmap] addr: {}, length: {}", addr, length);
         let length = align_up(length as u32, core.pagesize() as u32);
         Memory::mem_unmap(core, addr, length as usize)?;
         Ok(0)
