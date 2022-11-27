@@ -1,5 +1,12 @@
 //use crate::arch::Core;
 
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+
+use log::{info, trace};
+use num_traits::Zero;
+use serde::{Deserialize, Serialize};
+use unicorn_engine::unicorn_const::{HookType, MemType, Mode};
+
 use crate::{
     arch::{ArchInfo, ArchT},
     config::OmoConfig,
@@ -9,11 +16,6 @@ use crate::{
     os::Runner,
     registers::{RegisterState, Registers},
 };
-use log::{info, trace};
-use num_traits::Zero;
-use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
-use unicorn_engine::unicorn_const::{HookType, MemType, Mode};
 
 pub struct Emulator<'a, A, Os> {
     config: OmoConfig,
@@ -70,7 +72,7 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
 
         machine.add_code_hook(0, u32::MAX as u64, {
             |uc, addr, size| {
-                info!(
+                trace!(
                     "step {}, {} {}, pc {}",
                     uc.get_data().state.steps,
                     addr,
@@ -239,6 +241,7 @@ pub struct StateChange {
     pub step: u64,
     pub access: Vec<MemAccess>,
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct MemAccess {
     /// read or write
