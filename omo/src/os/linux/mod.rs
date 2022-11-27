@@ -2,6 +2,7 @@ use std::{
     cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
 };
 
+use log::info;
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
@@ -535,6 +536,7 @@ impl Inner {
                     },
                     Some("[brk]".to_string()),
                 )?;
+                log::debug!("brk mmaped, begin: {}, end: {}", cur_brk_addr, new_brk_addr)
             } else if inp < cur_brk_addr {
                 Memory::mem_unmap(core, new_brk_addr, (cur_brk_addr - new_brk_addr) as usize)?;
             }
@@ -639,7 +641,7 @@ impl Inner {
         fd: u64,
         pgoffset: u64, // TODO no fd supports yet
         _ver: u8,
-    ) -> Result<i64, uc_error> {
+    ) -> Result<i64, EmulatorError> {
         let fd = fd as i32;
 
         log::debug!(
@@ -673,7 +675,7 @@ impl Inner {
         let mut need_map = true;
         if mmap_base != 0 {
             // already mapped.
-            if Memory::is_mapped(core, mmap_base as u64, mmap_size as usize)? {
+            if Memory::is_mapped(core, mmap_base, mmap_size as usize) {
                 // if map fixed, we just protect mem
                 if flags & MAP_FIXED != 0 {
                     log::debug!("mmap2 - MAP_FIXED, mapping not needed");
@@ -688,8 +690,7 @@ impl Inner {
         }
         if need_map {
             if mmap_base == 0 {
-                mmap_base = self.mmap_address;
-                self.mmap_address = mmap_base + mmap_size;
+                mmap_base = Memory::next_mmap_address(core, self.mmap_address, mmap_size as usize)?;
             }
 
             log::debug!(
