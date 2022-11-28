@@ -1,0 +1,19 @@
+[package]
+name = "omo-workflow"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+omo = {path = "../omo"}
+serde = "~1"
+serde_json = "~1"
+#starcoin-crypto = { git = "https://github.com/starcoinorg/starcoin-crypto" }
+starcoin-types = {git = "https://github.com/starcoinorg/starcoin"}
+starcoin-rpc-api = { git = "https://github.com/starcoinorg/starcoin"}
+starcoin-logger = { git = "https://github.com/starcoinorg/starcoin" }
+jsonrpc-core-client = "18"
+tokio = { version = "^1", features = ["full"] }
+futures-util = "~0.3"
+futures-retry = "0.6"
