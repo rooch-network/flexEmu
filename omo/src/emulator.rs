@@ -116,7 +116,7 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
         exitpoint: Option<u64>,
         timeout: Option<u64>,
         count: Option<usize>,
-    ) -> Result<(), EmulatorError> {
+    ) -> Result<u64, EmulatorError> {
         let exitpoint = exitpoint.unwrap_or_else(|| default_exitpoint(self.core.pointer_size()));
         self.core.emu_start(
             entrypoint,
@@ -124,7 +124,7 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
             timeout.unwrap_or_default(),
             count.unwrap_or_default(),
         )?;
-        Ok(())
+        Ok(self.core.get_data().state.steps)
     }
 
     pub fn run_until(

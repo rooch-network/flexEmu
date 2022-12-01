@@ -335,7 +335,7 @@ version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 dependencies = [
- "hermit-abi",
+ "hermit-abi 0.1.19",
  "libc",
  "winapi 0.3.9",
 ]
@@ -669,12 +669,25 @@ dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
- "clap_lex",
+ "clap_lex 0.2.4",
  "indexmap",
  "once_cell",
  "strsim 0.10.0",
  "termcolor",
  "textwrap 0.15.1",
+]
+
+[[package]]
+name = "clap"
+version = "4.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0acbd8d28a0a60d7108d7ae850af6ba34cf2d1257fc646980e5f97ce14275966"
+dependencies = [
+ "bitflags",
+ "clap_lex 0.3.0",
+ "is-terminal",
+ "strsim 0.10.0",
+ "termcolor",
 ]
 
 [[package]]
@@ -695,6 +708,15 @@ name = "clap_lex"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
+dependencies = [
+ "os_str_bytes",
+]
+
+[[package]]
+name = "clap_lex"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1190,6 +1212,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "errno"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f639046355ee4f37944e44f60642c6f3a7efa3cf6b78c78a0d989a8ce6c396a1"
+dependencies = [
+ "errno-dragonfly",
+ "libc",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "errno-dragonfly"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "ethnum"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1628,6 +1671,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hermit-abi"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee512640fe35acbfb4bb779db6f0d80704c2cacfa2e39b601ef3e3f47d1ae4c7"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1918,12 +1970,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "io-lifetimes"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46112a93252b123d31a119a8d1a1ac19deac4fac6e0e8b0df58f0d4e5870e63c"
+dependencies = [
+ "libc",
+ "windows-sys 0.42.0",
+]
+
+[[package]]
 name = "iovec"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2b3ea6ff95e175473f8ffe6a7eb7c00d054240321b84c57051175fe3c1e075e"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "is-terminal"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "927609f78c2913a6f6ac3c27a4fe87f43e2a35367c0c4b0f8265e8f49a104330"
+dependencies = [
+ "hermit-abi 0.2.6",
+ "io-lifetimes",
+ "rustix",
+ "windows-sys 0.42.0",
 ]
 
 [[package]]
@@ -2003,6 +2077,18 @@ version = "17.0.0"
 source = "git+https://github.com/starcoinorg/jsonrpc?rev=2f6c2b33d3048d57a85347ee735b312df0117b15#2f6c2b33d3048d57a85347ee735b312df0117b15"
 dependencies = [
  "openrpc-rs 0.1.0 (git+https://github.com/fikgol/openrpc-rs)",
+ "proc-macro-crate 0.1.5",
+ "proc-macro2 1.0.44",
+ "quote 1.0.21",
+ "syn 1.0.101",
+]
+
+[[package]]
+name = "jsonrpc-derive"
+version = "18.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b939a78fa820cdfcb7ee7484466746a7377760970f6f9c6fe19f9edcc8a38d2"
+dependencies = [
  "proc-macro-crate 0.1.5",
  "proc-macro2 1.0.44",
  "quote 1.0.21",
@@ -2223,6 +2309,12 @@ name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
+
+[[package]]
+name = "linux-raw-sys"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f9f08d8963a6c613f4b1a78f4f4a4dbfadf8e6545b2d72861731e4858b8b47f"
 
 [[package]]
 name = "lock_api"
@@ -3101,7 +3193,7 @@ version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6058e64324c71e02bc2b150e4f3bc8286db6c83092132ffa3f6b1eab0f9def5"
 dependencies = [
- "hermit-abi",
+ "hermit-abi 0.1.19",
  "libc",
 ]
 
@@ -3177,6 +3269,8 @@ dependencies = [
 name = "omo-workflow"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "clap 4.0.27",
  "futures-retry",
  "futures-util",
  "jsonrpc-core-client",
@@ -3185,6 +3279,7 @@ dependencies = [
  "serde_json",
  "starcoin-logger",
  "starcoin-rpc-api",
+ "starcoin-rpc-client",
  "starcoin-types",
  "tokio",
 ]
@@ -4233,6 +4328,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustix"
+version = "0.36.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb93e85278e08bb5788653183213d3a60fc242b10cb9be96586f5a73dcb67c23"
+dependencies = [
+ "bitflags",
+ "errno",
+ "io-lifetimes",
+ "libc",
+ "linux-raw-sys",
+ "windows-sys 0.42.0",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5031,7 +5140,7 @@ dependencies = [
  "hex",
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "jsonrpc-pubsub",
  "jsonrpc-server-utils",
  "network-api",
@@ -5059,6 +5168,49 @@ dependencies = [
  "starcoin-vm-types",
  "thiserror",
  "vm-status-translator",
+]
+
+[[package]]
+name = "starcoin-rpc-client"
+version = "1.12.6"
+source = "git+https://github.com/starcoinorg/starcoin#2ca00fd878b27f0b21b57a03645de4c73fcdd227"
+dependencies = [
+ "actix",
+ "actix-rt",
+ "anyhow",
+ "async-std",
+ "bcs-ext",
+ "futures 0.3.25",
+ "futures-timer",
+ "hex",
+ "jsonrpc-client-transports",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive 18.0.0",
+ "jsonrpc-pubsub",
+ "jsonrpc-server-utils",
+ "log 0.4.17",
+ "network-api",
+ "network-p2p-types",
+ "network-types",
+ "parity-tokio-ipc",
+ "parking_lot 0.12.1",
+ "serde",
+ "serde_json",
+ "starcoin-abi-types",
+ "starcoin-account-api",
+ "starcoin-crypto",
+ "starcoin-logger",
+ "starcoin-rpc-api",
+ "starcoin-service-registry",
+ "starcoin-state-api",
+ "starcoin-state-tree",
+ "starcoin-sync-api",
+ "starcoin-txpool-api",
+ "starcoin-types",
+ "starcoin-vm-types",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
