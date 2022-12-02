@@ -1,29 +1,47 @@
 # OMO
 
-A bytecode level program emulator with per-step state proof.
+Bytecode emulator with per-step state proof.
 It can be used to generate challenge proof of optimistic rollup,
-and maybe other scenarios in blockchain which need program state proof.
+and other scenarios in blockchain which need state proof.
 
-The core idea is derived from [cannon](https://github.com/ethereum-optimism/cannon) and [qiling](https://github.com/qilingframework/qiling).
+## Platforms
 
-## Development Setup
+Could emulate program built with:
 
-To cross compile crates to mips or other targets.
-You need:
+- **Arch**: MIPS32
+- **OS**: Linux
+- **Executable File Format**: ELF 32-bit MSB
+
+May support more in the future.
+
+## Getting Started
+
+The project contains two crates:
+
+- `./omo` : main entrypoint of the OMO emulator.
+- `./rust-mips-example`: example crate. It is configured to build into a linux mips binary, which can be run by `omo`.
+
+### Prerequisites
 
 - [rust](https://rustup.rs/)
+
+#### Using Rust Cross
+
 - [cross](https://github.com/cross-rs/cross)
 - Docker: cross needs it.
 - [cmake](https://cmake.org/download/) >= 3.12
 
-## Get Started
+#### Using MUSL tools
 
-The project contains two crates:
+- Add mips-unknown-linux-musl supports:
+```shell
+rustup target add mips-unknown-linux-musl
+```
+- Download musl toolchain from [musl.cc](https://musl.cc): mips-linux-musl-cross
 
-- `./omo` is the main entrypoint of the omo emulator.
-- `./rust-mips-example` is an example crate. it is configured to build into a linux mips binary, which can be run by `omo`.
+### Example
 
-First, we need to compile the `rust-mips-example`:
+Compile the `rust-mips-example`:
 
 ```shell
 cd ./rust-mips-example
@@ -32,14 +50,25 @@ cross build --target mips-unknown-linux-musl --release -v
 file target/mips-unknown-linux-musl/release/rust-mips-example
 ```
 
-then we use the omo to run this `target/mips-unknown-linux-musl/release/rust-mips-example`
+p.s. If using MUSL tools, building example directly with:
+```shell
+cargo build --target mips-unknown-linux-musl --release --no-default-features
+```
+
+Compile `OMO`:
+
+```shell
+cargo build --release
+```
+
+Run example:
 
 ```shell
 cd ./omo
 cargo run -- --config config.toml.example --env E1=a --env E2=b ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
 ```
 
-it will output:
+Output:
 
 ```
 Run ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example
@@ -47,15 +76,7 @@ E1=a
 E2=b
 ```
 
-## Supported Archs
-
-**Arch**: MIPS32 at present, will support more.
-
-**Executable File Format**: ELF 32-bit MSB executable at present.
-
-**OS**: Linux.
-
-## Other resources
+## Documents
 
 - [intro to omo - part1](./docs/intro-to-omo-part1.zh.md)
 - [prototype of move layer2 using cannon](./docs/prototype_of_cannon_in_move.zh.md)
@@ -63,4 +84,9 @@ E2=b
 
 ## License
 
-Apache License 2.0
+Distributed under the Apache License 2.0. See [LICENSE](LICENSE) for more information.
+
+## Acknowledgments
+
+- [Cannon](https://github.com/ethereum-optimism/cannon)
+- [Qiling](https://github.com/qilingframework/qiling)
