@@ -39,9 +39,9 @@ rustup target add mips-unknown-linux-musl
 ```
 - Download musl toolchain from [musl.cc](https://musl.cc): mips-linux-musl-cross
 
-### Example
+### Run Example
 
-Compile the `rust-mips-example`:
+**Compile `rust-mips-example`:**
 
 ```shell
 cd ./rust-mips-example
@@ -50,26 +50,23 @@ cross build --target mips-unknown-linux-musl --release -v
 file target/mips-unknown-linux-musl/release/rust-mips-example
 ```
 
-p.s. If using MUSL tools, building example directly with:
+**If using MUSL tools:**
 ```shell
 cargo build --target mips-unknown-linux-musl --release --no-default-features
 ```
 
-Compile `OMO`:
-
+**Compile `OMO`:**
 ```shell
 cargo build --release
 ```
 
-Run example:
-
+**Run:**
 ```shell
 cd ./omo
 cargo run -- --config config.toml.example --env E1=a --env E2=b ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
 ```
 
-Output:
-
+**Output:**
 ```
 Run ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example
 E1=a
