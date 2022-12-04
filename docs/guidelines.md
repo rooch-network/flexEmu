@@ -4,9 +4,8 @@ Guidelines
 Guidelines of background, design and implementation docs of OMO.
 
 * [Overview](overview.md) / [[概览]](ch/overview.md)
-
 * [Components](components.md) / [[组件]](ch/components.md)
-
+* [Challenge](challenge.md)
 * [Contracts](../contracts/README.md) - Details of Move modules for verifying Layer2 instructions.
 
 ## Additional Information*

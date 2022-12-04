@@ -1,6 +1,7 @@
-# Background of Layer2
+Background of Layer2
+===
 
-### Bottleneck of Layer1 with Smart Contract
+## Bottleneck of Layer1 with Smart Contract
 
 The most valuable resource on the chain is gas, because the gas of each block is capped, and the average block-out time
 is fixed, so there is actually a limit to the number of computational steps that can be done per unit of time:
@@ -11,7 +12,7 @@ Obviously, we need to try to reduce gas per txn.
 
 The direct way is to package multi txn into one, and that's the core idea of rollup.
 
-### Optimistic Rollup
+## Optimistic Rollup
 
 In last section, we've known that we need rollup, but who will take this responsibility, is it safe, how to challenge
 the state?
