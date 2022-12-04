@@ -11,4 +11,4 @@ Guidelines of background, design and implementation docs of OMO.
 
 ## Additional Information*
 
-* [Background of Layer2](./docs/background_of_layer2.md)
+* [Background of Layer2](background_of_layer2.md)
