@@ -4,6 +4,10 @@ Bytecode emulator with per-step state proof.
 It can be used to generate challenge proof of optimistic rollup,
 and other scenarios in blockchain which need state proof.
 
+- **[Overview](docs/overview.md)** / [[概览]](docs/ch/overview.md) 
+
+- **[Documents](docs)**
+
 ## Platforms
 
 Could emulate program built with:
@@ -16,7 +20,7 @@ May support more in the future.
 
 ## Getting Started
 
-The project contains two crates:
+The project contains two Rust crates:
 
 - `./omo` : main entrypoint of the OMO emulator.
 - `./rust-mips-example`: example crate. It is configured to build into a linux mips binary, which can be run by `omo`.
@@ -51,6 +55,8 @@ file target/mips-unknown-linux-musl/release/rust-mips-example
 ```
 
 **If using MUSL tools:**
+
+- Set `linker = "mips-linux-musl-gcc"` in [cargo config](rust-mips-example/.cargo/config.toml)
 ```shell
 cargo build --target mips-unknown-linux-musl --release --no-default-features
 ```
@@ -72,12 +78,6 @@ Run ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-exampl
 E1=a
 E2=b
 ```
-
-## Documents
-
-- [intro to omo - part1](./docs/intro-to-omo-part1.zh.md)
-- [prototype of move layer2 using cannon](./docs/prototype_of_cannon_in_move.zh.md)
-- [background of layer2](./docs/background.md)
 
 ## License
 
