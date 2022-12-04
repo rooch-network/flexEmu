@@ -3270,6 +3270,7 @@ name = "omo-workflow"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bcs-ext",
  "clap 4.0.27",
  "futures-retry",
  "futures-util",
@@ -3277,10 +3278,12 @@ dependencies = [
  "omo",
  "serde",
  "serde_json",
+ "starcoin-crypto",
  "starcoin-logger",
  "starcoin-rpc-api",
  "starcoin-rpc-client",
  "starcoin-types",
+ "starcoin-vm-types",
  "tokio",
 ]
 

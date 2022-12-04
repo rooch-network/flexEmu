@@ -9,11 +9,13 @@ edition = "2021"
 omo = {path = "../omo"}
 serde = "~1"
 serde_json = "~1"
-#starcoin-crypto = { git = "https://github.com/starcoinorg/starcoin-crypto" }
+starcoin-crypto = { git = "https://github.com/starcoinorg/starcoin-crypto", rev = "d871dfb4216f034ee334a575926c101574d9d6dc" }
 starcoin-types = {git = "https://github.com/starcoinorg/starcoin"}
+starcoin-vm-types = {git = "https://github.com/starcoinorg/starcoin"}
 starcoin-rpc-client = { git = "https://github.com/starcoinorg/starcoin" }
 starcoin-rpc-api = { git = "https://github.com/starcoinorg/starcoin"}
 starcoin-logger = { git = "https://github.com/starcoinorg/starcoin" }
+bcs-ext = { git = "https://github.com/starcoinorg/starcoin" }
 jsonrpc-core-client = "18"
 tokio = { version = "^1", features = ["full"] }
 futures-util = "~0.3"

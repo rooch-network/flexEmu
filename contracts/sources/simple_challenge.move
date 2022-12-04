@@ -6,7 +6,6 @@ module omo::SimpleChallenge {
     use omo::mips_emulator;
     use trie::hash_value::HashValue;
     use trie::hash_value;
-    use StarcoinFramework::Signer::address_of;
 
     const ERR_BLOCK_NUMBER_HASH_EMPTY: u64 = 1;
     const ERR_BLOCK_NUMBER_P1_HASH_EMPTY: u64 = 2;
@@ -24,10 +23,11 @@ module omo::SimpleChallenge {
     const ERR_WRONG_ASSERTED_STATE_FOR_CHALLENGER: u64 = 14;
     const ERR_WRONG_ASSERTED_STATE_FOR_DEFENDER: u64 = 15;
     const ERR_TABLE_KEY_NOT_EXISTS: u64 = 16;
+    const ERR_STATE_ARE_SAME: u64 = 17;
 
     struct ChallengeData has key,store {
-        L: u64,
-        R: u64,
+        l: u64,
+        r: u64,
         asserted_state: Table::Table<u64, HashValue>,
         defended_state: Table::Table<u64, HashValue>,
         challenger: address,
@@ -38,7 +38,9 @@ module omo::SimpleChallenge {
     }
 
     struct Global has key,store {
-        lastChallengeId: u64,
+        // last_challenge_d: u64,
+        declared_state: HashValue,
+        // step_count: u64,
     }
 
     fun vector_to_u64(v: &vector<u8>): u64 {
@@ -57,185 +59,169 @@ module omo::SimpleChallenge {
         r
     }
 
-    fun borrow_table_value(table: &Table::Table<u64, HashValue>, key: u64): &HashValue {
-        assert!(Table::contains(table, key), ERR_TABLE_KEY_NOT_EXISTS);
-        borrow_table_value(table, key)
-    }
+    // fun next_challenge_id(proposer: address): u64 acquires Global {
+    //     let g = borrow_global_mut<Global>(proposer);
+    //     g.last_challenge_d = g.last_challenge_d + 1;
+    //     *&g.last_challenge_d
+    // }
 
-    fun get_global_challenge_id(signer: &signer): u64 acquires Global {
-        let g = borrow_global_mut<Global>(Signer::address_of(signer));
-        g.lastChallengeId = g.lastChallengeId + 1;
-        *&g.lastChallengeId
-    }
-
-    fun set_challenge(signer: &signer, challenge_id: u64, challenger: address,
-                                 asserted_state: HashValue, defended_state: HashValue,
-                                 final_step_count: u64, final_system_state: HashValue, l: u64, r: u64)
-    acquires Challenges {
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
-
-        if (challenge_id > Vector::length(&challenges.value)) {
-            let challenge_data = ChallengeData{
-                L: 0,
-                R: 0,
-                asserted_state: Table::new(),
-                defended_state: Table::new(),
-                challenger: @0x0,
-            };
-            Vector::push_back(&mut challenges.value, challenge_data);
-        };
-
-        let c = Vector::borrow_mut<ChallengeData>(&mut challenges.value, 0);
-
-        c.challenger = challenger;
-
-        Table::add(&mut c.asserted_state, 0, asserted_state);
-        Table::add(&mut c.defended_state, 0, defended_state);
-
-        Table::add(&mut c.defended_state, final_step_count, final_system_state);
-
-        c.L = l;
-        c.R = r;
-    }
-
-    public(script) fun initiate_challenge(signer: &signer, start_state: HashValue, final_system_state: HashValue, step_count: u64)
-    acquires Global, Challenges {
+    public fun declare_state(signer: &signer, final_state: HashValue) {
         let g = Global {
-            lastChallengeId: 0,
+            declared_state: final_state,
         };
         move_to(signer, g);
-
         let challenges = Challenges{value: Vector::empty<ChallengeData>()};
         move_to(signer, challenges);
-
-        let challenge_id = get_global_challenge_id(signer);
-
-        set_challenge(signer, challenge_id,
-            Signer::address_of(signer),
-            copy start_state,
-            copy start_state,
-            step_count,
-            final_system_state,
-            0,
-            step_count
-        );
     }
 
-    public(script) fun is_searching(address: address, challenge_id: u64): bool acquires Challenges {
-        let challenges = borrow_global_mut<Challenges>(address);
-        let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
+    public fun create_challenge(signer: &signer, proposer_address: address, final_system_state: HashValue, step_count: u64): u64
+    acquires Global, Challenges {
+        //let challenge_id = next_challenge_id(proposer_address);
+        let glo = borrow_global<Global>(proposer_address);
+        assert!(glo.declared_state != final_system_state, ERR_STATE_ARE_SAME);
+
+        let challenges = borrow_global_mut<Challenges>(proposer_address);
+        let challenge_data = ChallengeData {
+            l: 0,
+            r: step_count,
+            asserted_state: Table::new(),
+            defended_state: Table::new(),
+            challenger: Signer::address_of(signer),
+        };
+        Table::add(&mut challenge_data.defended_state, step_count, final_system_state);
+
+        Vector::push_back(&mut challenges.value, challenge_data);
+        Vector::length(&challenges.value) - 1
+    }
+
+    public fun is_searching(address: address, challenge_id: u64): bool acquires Challenges {
+        let challenges = borrow_global<Challenges>(address);
+        let c = Vector::borrow(&challenges.value, challenge_id);
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
-        (c.L + 1 != c.R)
+        is_searching_(c)
+    }
+
+    /// Check whether a participant has already propose state of some step
+    public fun contain_state(proposer_address: address, challenge_id: u64, step: u64, defend: bool): bool acquires Challenges {
+        let challenges = borrow_global<Challenges>(proposer_address);
+        let c = Vector::borrow(&challenges.value, challenge_id);
+        if (defend) {
+            Table::contains(&c.defended_state, step)
+        } else {
+            Table::contains(&c.asserted_state, step)
+        }
     }
 
     fun get_step_number(address: address, challenge_id: u64): u64 acquires Challenges {
-        let challenges = borrow_global_mut<Challenges>(address);
-        let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
+        let challenges = borrow_global<Challenges>(address);
+        let c = Vector::borrow(&challenges.value, challenge_id);
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
 
-        (c.L + c.R) / 2
+        step_number(c)
     }
 
-    public(script) fun get_proposed_state(signer: &signer, challenge_id: u64): HashValue acquires Challenges {
-        let step_number = get_step_number(address_of(signer), challenge_id);
+    fun is_searching_(c: &ChallengeData): bool {
+        (c.l + 1 != c.r)
+    }
+    fun step_number(c: &ChallengeData): u64 {
+        (c.l + c.r) / 2
+    }
 
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
-        let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
+    public fun get_proposed_state(user: address, challenge_id: u64): HashValue acquires Challenges {
+        let challenges = borrow_global<Challenges>(user);
+        let c = Vector::borrow(&challenges.value, challenge_id);
+        let step_number = step_number(c);
 
         assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
-
-        let borrowed_state = borrow_table_value(&c.asserted_state, step_number);
+        let borrowed_state = Table::borrow(&c.asserted_state, step_number);
         *borrowed_state
     }
 
     // the challenger call this function to submit the state hash
     // for next step in the binary search
-    public(script) fun propose_state(signer: &signer, challenge_id: u64, state_hash: HashValue) acquires Challenges {
-        assert!(is_searching(address_of(signer), challenge_id), ERR_MUST_BE_SEARCHING);
-        let step_number = get_step_number(address_of(signer), challenge_id);
-
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
+    public fun assert_state(signer: &signer, proposer_address: address, challenge_id: u64, state_hash: HashValue) acquires Challenges {
+        let challenges = borrow_global_mut<Challenges>(proposer_address);
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
-
-        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
+        assert!(is_searching_(c), ERR_MUST_BE_SEARCHING);
         assert!(c.challenger == Signer::address_of(signer), ERR_MUST_BE_CHALLENGER);
+        let step_number = step_number(c);
 
-        let state = borrow_table_value(&c.asserted_state, step_number);
-        assert!(vector_to_u64(&hash_value::to_bytes(*state)) == 0, ERR_STATE_ALREADY_PROPOSED);
+        // assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
+        //assert!(c.challenger == Signer::address_of(signer), ERR_MUST_BE_CHALLENGER);
 
         let key_contains = Table::contains(&c.asserted_state, step_number);
-        if (!key_contains) {
+        if (key_contains) {
+            abort ERR_STATE_ALREADY_PROPOSED
+        } else {
             Table::add(&mut c.asserted_state, step_number, state_hash);
         }
     }
 
     // the defender call this function to submit the state hash
     // for next step in the binary search
-    public(script) fun respond_state(_signer: &signer, challenger_address: address, challenge_id: u64, state_hash: HashValue) acquires Challenges {
-        assert!(is_searching(challenger_address, challenge_id), ERR_MUST_BE_SEARCHING);
-        let step_number = get_step_number(challenger_address, challenge_id);
+    public fun defend_state(sender: &signer, challenge_id: u64, state_hash: HashValue) acquires Challenges {
+        let proposer_address = Signer::address_of(sender);
+        assert!(is_searching(proposer_address, challenge_id), ERR_MUST_BE_SEARCHING);
 
-        let challenges = borrow_global_mut<Challenges>(challenger_address);
+        let challenges = borrow_global_mut<Challenges>(proposer_address);
         let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
+        let step_number = step_number(c);
 
-        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
-        assert!(c.challenger == challenger_address, ERR_MUST_BE_CHALLENGER);
+        // assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
+        // assert!(c.challenger == proposer_address, ERR_MUST_BE_CHALLENGER);
 
-        let asserted_state = borrow_table_value(&c.asserted_state, step_number);
-        assert!(vector_to_u64(&hash_value::to_bytes(*asserted_state)) != 0, ERR_CHALLENGE_STATE_NOT_PROPOSED);
 
-        let defended_state = borrow_table_value(&c.asserted_state, step_number);
-        assert!(vector_to_u64(&hash_value::to_bytes(*defended_state)) != 0, ERR_STATE_ALREADY_PROPOSED);
+        // assert!(vector_to_u64(&hash_value::to_bytes(*asserted_state)) != 0, ERR_CHALLENGE_STATE_NOT_PROPOSED);
+
+        // let defended_state = borrow_table_value(&c.defended_state, step_number);
+        // assert!(vector_to_u64(&hash_value::to_bytes(*defended_state)) != 0, ERR_STATE_ALREADY_PROPOSED);
 
         let key_contains = Table::contains(&c.defended_state, step_number);
-        if (!key_contains) {
+        if (key_contains) {
+            abort ERR_STATE_ALREADY_PROPOSED
+        } else {
             Table::add(&mut c.defended_state, step_number, state_hash);
         };
 
         // update binary search bounds
-        let asserted_state = borrow_table_value(&c.asserted_state, step_number);
-        let defended_state = borrow_table_value(&c.defended_state, step_number);
+        let asserted_state = Table::borrow(&c.asserted_state, step_number);
+        let defended_state = &state_hash;
         if (asserted_state == defended_state) {
-            c.L = step_number;  // agree
+            c.l = step_number;  // agree
         } else {
-            c.R = step_number;  // disagree
+            c.r = step_number;  // disagree
         }
     }
 
-    public(script) fun confirm_state_transition(signer: &signer, challenge_id: u64) acquires Challenges {
-        assert!(!is_searching(address_of(signer), challenge_id), ERR_BINARY_SEARCH_NOT_FINISHED);
+    public fun confirm_state_transition(sender: &signer, proposer: address, challenge_id: u64) acquires Challenges {
+        let challenges = borrow_global<Challenges>(proposer);
+        let c = Vector::borrow(&challenges.value, challenge_id);
 
-        let challenges = borrow_global_mut<Challenges>(Signer::address_of(signer));
-        let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
+        assert!(!is_searching_(c), ERR_BINARY_SEARCH_NOT_FINISHED);
 
-        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
+        let asserted_state = Table::borrow(&c.asserted_state, c.l);
+        let step_state = mips_emulator::run(Signer::address_of(sender), hash_value::to_bytes(*asserted_state));
 
-        let asserted_state = borrow_table_value(&c.asserted_state, c.L);
-        let addr = Signer::address_of(signer);
-        let step_state = mips_emulator::run(addr, hash_value::to_bytes(*asserted_state));
-
-        let right_asserted_state = borrow_table_value(&c.asserted_state, c.R);
+        let right_asserted_state = Table::borrow(&c.asserted_state, c.r);
         assert!(step_state == hash_value::to_bytes(*right_asserted_state), ERR_WRONG_ASSERTED_STATE_FOR_CHALLENGER);
 
         // TODO: emit challenge wins event
     }
 
-    public(script) fun deny_state_transition(_signer: &signer, challenger_address: address, challenge_id: u64) acquires Challenges {
+    public fun deny_state_transition(sender: &signer, proposer_address: address, challenge_id: u64) acquires Challenges {
+        let challenges = borrow_global<Challenges>(proposer_address);
+        let c = Vector::borrow(&challenges.value, challenge_id);
+
         // if c.L + 1 == c.R, run the following code
-        assert!(!is_searching(challenger_address, challenge_id), ERR_BINARY_SEARCH_NOT_FINISHED);
+        assert!(!is_searching_(c), ERR_BINARY_SEARCH_NOT_FINISHED);
 
-        let challenges = borrow_global_mut<Challenges>(challenger_address);
-        let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
+        let defended_state = Table::borrow(&c.defended_state, c.l);
+        let step_state = mips_emulator::run(Signer::address_of(sender), hash_value::to_bytes(*defended_state));
 
-        assert!(c.challenger != @0x0, ERR_INVALID_CHALLENGE);
-
-        let defended_state = borrow_table_value(&c.defended_state, c.L);
-        let step_state = mips_emulator::run(challenger_address, hash_value::to_bytes(*defended_state));
-
-        let right_defended_state = borrow_table_value(&c.defended_state, c.R);
+        let right_defended_state = Table::borrow(&c.defended_state, c.r);
         assert!(step_state == hash_value::to_bytes(*right_defended_state), ERR_WRONG_ASSERTED_STATE_FOR_DEFENDER);
 
         // TODO: emit defender wins event

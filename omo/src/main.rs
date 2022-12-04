@@ -84,7 +84,8 @@ fn main() -> Result<(), EmulatorError> {
             let load_info = emu.load(&binary, argv, env)?;
             info!("load info: {:?}", &load_info);
 
-            emu.run(load_info.entrypoint, None, None, None)?;
+            let total_steps = emu.run(load_info.entrypoint, None, None, None)?;
+            info!("steps: {}", total_steps);
         }
         SubCommands::GenState {
             exec,
