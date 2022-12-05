@@ -431,7 +431,7 @@ dependencies = [
  "cexpr",
  "clang-sys",
  "clap 2.34.0",
- "env_logger",
+ "env_logger 0.9.1",
  "lazy_static",
  "lazycell",
  "log 0.4.17",
@@ -669,25 +669,12 @@ dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
- "clap_lex 0.2.4",
+ "clap_lex",
  "indexmap",
  "once_cell",
  "strsim 0.10.0",
  "termcolor",
  "textwrap 0.15.1",
-]
-
-[[package]]
-name = "clap"
-version = "4.0.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0acbd8d28a0a60d7108d7ae850af6ba34cf2d1257fc646980e5f97ce14275966"
-dependencies = [
- "bitflags",
- "clap_lex 0.3.0",
- "is-terminal",
- "strsim 0.10.0",
- "termcolor",
 ]
 
 [[package]]
@@ -708,15 +695,6 @@ name = "clap_lex"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
-dependencies = [
- "os_str_bytes",
-]
-
-[[package]]
-name = "clap_lex"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1206,6 +1184,19 @@ checksum = "c90bf5f19754d10198ccb95b70664fc925bd1fc090a0fd9a6ebc54acc8cd6272"
 dependencies = [
  "atty",
  "humantime",
+ "log 0.4.17",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
+dependencies = [
+ "humantime",
+ "is-terminal",
  "log 0.4.17",
  "regex",
  "termcolor",
@@ -3244,7 +3235,7 @@ dependencies = [
  "byteorder",
  "bytes 1.2.1",
  "clap 3.2.22",
- "env_logger",
+ "env_logger 0.9.1",
  "ethtrie-codec",
  "goblin",
  "hex",
@@ -3271,20 +3262,23 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bcs-ext",
- "clap 4.0.27",
+ "clap 3.2.22",
+ "env_logger 0.10.0",
  "futures-retry",
  "futures-util",
  "jsonrpc-core-client",
+ "lazy_static",
+ "log 0.4.17",
  "omo",
  "serde",
  "serde_json",
  "starcoin-crypto",
- "starcoin-logger",
  "starcoin-rpc-api",
  "starcoin-rpc-client",
  "starcoin-types",
  "starcoin-vm-types",
  "tokio",
+ "toml",
 ]
 
 [[package]]

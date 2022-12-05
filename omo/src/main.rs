@@ -7,6 +7,7 @@ use omo::{
     emulator::{Emulator, StateChange},
     errors::EmulatorError,
     os::linux::LinuxRunner,
+    parse_key_val,
     step_proof::generate_step_proof,
 };
 use std::{
@@ -198,20 +199,6 @@ fn main() -> Result<(), EmulatorError> {
         }
     };
     Ok(())
-}
-
-/// Parse a single key-value pair
-fn parse_key_val<T, U>(s: &str) -> Result<(T, U), anyhow::Error>
-where
-    T: std::str::FromStr,
-    T::Err: Error + 'static + Sync + Send,
-    U: std::str::FromStr,
-    U::Err: Error + 'static + Sync + Send,
-{
-    let pos = s
-        .find('=')
-        .ok_or_else(|| anyhow::anyhow!("invalid KEY=value: no `=` found in `{}`", s))?;
-    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
 const TOTAL_MEMORY: usize = 0x180000000;

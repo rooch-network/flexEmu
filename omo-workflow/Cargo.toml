@@ -14,11 +14,15 @@ starcoin-types = {git = "https://github.com/starcoinorg/starcoin"}
 starcoin-vm-types = {git = "https://github.com/starcoinorg/starcoin"}
 starcoin-rpc-client = { git = "https://github.com/starcoinorg/starcoin" }
 starcoin-rpc-api = { git = "https://github.com/starcoinorg/starcoin"}
-starcoin-logger = { git = "https://github.com/starcoinorg/starcoin" }
+#starcoin-logger = { git = "https://github.com/starcoinorg/starcoin" }
 bcs-ext = { git = "https://github.com/starcoinorg/starcoin" }
 jsonrpc-core-client = "18"
 tokio = { version = "^1", features = ["full"] }
 futures-util = "~0.3"
 futures-retry = "0.6"
-clap = "4"
+clap = { version = "3", features=["derive"] }
 anyhow = "1"
+lazy_static = "1.4"
+log = "0.4"
+env_logger = "0.10"
+toml = "0.5"

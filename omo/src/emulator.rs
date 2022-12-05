@@ -278,6 +278,7 @@ impl EmulatorState {
         trie.insert(&0u32.to_be_bytes(), &regs).unwrap();
 
         trie.commit();
+        drop(trie);
         root
     }
 }

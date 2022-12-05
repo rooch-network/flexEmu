@@ -32,7 +32,7 @@ impl MoveResource for ChallengeData {
     const STRUCT_NAME: &'static str = "ChallengeData";
     fn struct_tag() -> StructTag {
         StructTag {
-            address: CHALLENGE_ADDRESS,
+            address: *CHALLENGE_ADDRESS,
             module: Self::module_identifier(),
             name: Self::struct_identifier(),
             type_params: Self::type_params(),
@@ -45,7 +45,7 @@ impl MoveResource for Challenges {
     const STRUCT_NAME: &'static str = "Challenges";
     fn struct_tag() -> StructTag {
         StructTag {
-            address: CHALLENGE_ADDRESS,
+            address: *CHALLENGE_ADDRESS,
             module: Self::module_identifier(),
             name: Self::struct_identifier(),
             type_params: Self::type_params(),
@@ -57,7 +57,7 @@ impl MoveResource for Global {
     const STRUCT_NAME: &'static str = "Global";
     fn struct_tag() -> StructTag {
         StructTag {
-            address: CHALLENGE_ADDRESS,
+            address: *CHALLENGE_ADDRESS,
             module: Self::module_identifier(),
             name: Self::struct_identifier(),
             type_params: Self::type_params(),

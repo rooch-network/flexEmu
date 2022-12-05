@@ -1,22 +1,23 @@
-use clap::Id;
+use lazy_static::lazy_static;
 use starcoin_crypto::HashValue;
 use starcoin_rpc_api::types::ContractCall;
 use starcoin_types::{
     account_address::AccountAddress,
     identifier::Identifier,
     language_storage::ModuleId,
-    transaction::{RawUserTransaction, ScriptFunction, TransactionArgument, TransactionPayload},
+    transaction::{ScriptFunction, TransactionArgument, TransactionPayload},
 };
 use starcoin_vm_types::language_storage::FunctionId;
 use std::str::FromStr;
-
 // TODO: change me
-pub const CHALLENGE_ADDRESS: AccountAddress = AccountAddress::from_str("0x1").unwrap();
+lazy_static! {
+    pub static ref CHALLENGE_ADDRESS: AccountAddress = AccountAddress::from_str("0x1").unwrap();
+    pub static ref CHALLENGE_MODULE: ModuleId = ModuleId::new(
+        *CHALLENGE_ADDRESS,
+        Identifier::from_str("challenge_script").unwrap(),
+    );
+}
 
-pub const CHALLENGE_MODULE: ModuleId = ModuleId::new(
-    CHALLENGE_ADDRESS,
-    Identifier::from_str("challenge_script").unwrap(),
-);
 pub fn declare_state(final_state: HashValue) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
         CHALLENGE_MODULE.clone(),
@@ -114,7 +115,7 @@ pub fn contain_state(
 ) -> ContractCall {
     ContractCall {
         function_id: FunctionId {
-            module: CHALLENGE_MODULE,
+            module: CHALLENGE_MODULE.clone(),
             function: Identifier::from_str("contain_state").unwrap(),
         }
         .into(),

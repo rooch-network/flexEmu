@@ -7,6 +7,7 @@ use crate::{
         deny_state_transition,
     },
 };
+use log::{error, info};
 use omo::{
     arch::mips::{MipsProfile, MIPS},
     config::OmoConfig,
@@ -15,19 +16,17 @@ use omo::{
     step_proof::generate_step_proof,
 };
 use starcoin_crypto::{ed25519::Ed25519PrivateKey, HashValue, PrivateKey};
-use starcoin_logger::prelude::{error, info};
-use starcoin_rpc_api::types::{ContractCall, TransactionInfoView, TransactionStatusView};
-use starcoin_rpc_client::{RemoteStateReader, RpcClient, StateRootOption};
+use starcoin_rpc_api::types::{TransactionInfoView, TransactionStatusView};
+use starcoin_rpc_client::{RpcClient, StateRootOption};
 use starcoin_types::{
     account_address::AccountAddress,
-    account_config::AccountResource,
     transaction::{
-        authenticator::{AccountPrivateKey, AuthenticationKey, AuthenticationKeyPreimage},
-        RawUserTransaction, SignedUserTransaction, TransactionPayload,
+        authenticator::AuthenticationKey, RawUserTransaction, SignedUserTransaction,
+        TransactionPayload,
     },
 };
 use starcoin_vm_types::state_view::StateReaderExt;
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
 pub struct SharedData {
     client: RpcClient,
@@ -44,13 +43,30 @@ pub struct Proposer {
     fault_step: Option<u64>,
     inner: SharedData,
 }
-struct RunUnit {
-    binary: Vec<u8>,
-    argv: Vec<String>,
-    env: Vec<(String, String)>,
+pub struct RunUnit {
+    pub binary: Vec<u8>,
+    pub argv: Vec<String>,
+    pub env: Vec<(String, String)>,
 }
 
 impl Proposer {
+    pub fn new(
+        omo_config: OmoConfig,
+        program: RunUnit,
+        key: Ed25519PrivateKey,
+        rpc: RpcClient,
+        fault_step: Option<u64>,
+    ) -> Self {
+        Self {
+            fault_step,
+            inner: SharedData {
+                client: rpc,
+                key,
+                program,
+                omo_config,
+            },
+        }
+    }
     pub async fn run(
         &self,
         // exec: Vec<u8>,
@@ -59,24 +75,25 @@ impl Proposer {
     ) -> anyhow::Result<()> {
         let inner = &self.inner;
         let emu_state = run_mips(
-            inner.omo_config.clone(),
+            self.inner.omo_config.clone(),
             self.inner.program.binary.clone(),
             self.inner.program.argv.clone(),
-            self.inner.program.envs.clone(),
+            self.inner.program.env.clone(),
             None,
         )?;
 
         // declare state
-        inner
+        let root = HashValue::new(emu_state.state_root());
+        self.inner
             .client
-            .submit_transaction(self.build_txn(txn_builder::declare_state(HashValue::new(
-                emu_state.state_root(),
-            )))?)?;
+            .submit_transaction(self.inner.build_txn(txn_builder::declare_state(root))?)?;
+        info!("declare_state with root {}", root);
 
-        let sender = AuthenticationKey::ed25519(&inner.key.public_key()).derived_address();
         loop {
             let remote_reader = inner.client.state_reader(StateRootOption::Latest)?;
-            let challenges = remote_reader.get_resource::<Challenges>(sender)?.unwrap();
+            let challenges = remote_reader
+                .get_resource::<Challenges>(self.inner.self_address())?
+                .unwrap();
             for (id, c) in challenges.value.into_iter().enumerate() {
                 self.handle_challenge(id as u64, c)?;
             }
@@ -85,7 +102,7 @@ impl Proposer {
         }
         Ok(())
     }
-    async fn handle_challenge(&self, cid: u64, c: ChallengeData) -> anyhow::Result<()> {
+    fn handle_challenge(&self, cid: u64, c: ChallengeData) -> anyhow::Result<()> {
         let me = self.inner.self_address();
 
         /// already stopped
@@ -104,13 +121,7 @@ impl Proposer {
                 cid,
                 state_proof.access_nodes,
             ))?;
-            let txn_hash = self.inner.client.submit_transaction(txn)?;
-            let _ = self.inner.client.watch_txn(txn_hash, None)?;
-            let txn_info = self
-                .inner
-                .client
-                .chain_get_transaction_info(txn_hash)?
-                .unwrap();
+            let txn_info = self.inner.send_and_wait_txn(txn)?;
 
             if txn_info.status == TransactionStatusView::Executed {
                 info!(
@@ -134,7 +145,12 @@ impl Proposer {
                 .pop()
                 .unwrap();
             let already_proposed = r.0.as_bool().unwrap();
-            if !already_proposed {
+            if already_proposed {
+                info!(
+                    "already defend state {:?} at step {}",
+                    state_root, next_step
+                );
+            } else {
                 let state = run_mips(
                     self.inner.omo_config.clone(),
                     self.inner.program.binary.clone(),
@@ -146,7 +162,7 @@ impl Proposer {
                 let r = self
                     .inner
                     .client
-                    .submit_transaction(self.build_txn(defend_state(cid, state_root))?)?;
+                    .submit_transaction(self.inner.build_txn(defend_state(cid, state_root))?)?;
                 self.inner.client.watch_txn(r, None)?;
                 info!("defend state {:?} at step {}", state_root, next_step);
             }
@@ -159,7 +175,7 @@ impl SharedData {
         AuthenticationKey::ed25519(&self.key.public_key()).derived_address()
     }
     fn build_txn(&self, payload: TransactionPayload) -> anyhow::Result<SignedUserTransaction> {
-        let sender = AuthenticationKey::ed25519(&self.key.public_key()).derived_address();
+        let sender = self.self_address();
         let remote_reader = self.client.state_reader(StateRootOption::Latest)?;
         let txn = RawUserTransaction::new_with_default_gas_token(
             sender,
@@ -183,13 +199,29 @@ impl SharedData {
 }
 
 impl Challenger {
+    pub fn new(
+        omo_config: OmoConfig,
+        program: RunUnit,
+        key: Ed25519PrivateKey,
+        rpc: RpcClient,
+        proposer: AccountAddress,
+    ) -> Self {
+        Self {
+            proposer_address: proposer,
+            inner: SharedData {
+                client: rpc,
+                key,
+                program,
+                omo_config,
+            },
+        }
+    }
     pub async fn run(
         &self,
         // exec: Vec<u8>,
         // argv: Vec<String>,
         // envs: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
-        let self_address = self.inner.self_address();
         loop {
             let remote_reader = self.inner.client.state_reader(StateRootOption::Latest)?;
             let declared_state = remote_reader.get_resource::<Global>(self.proposer_address)?;
@@ -198,7 +230,7 @@ impl Challenger {
                     self.inner.omo_config.clone(),
                     self.inner.program.binary.clone(),
                     self.inner.program.argv.clone(),
-                    self.inner.program.envs.clone(),
+                    self.inner.program.env.clone(),
                     None,
                 )?;
                 let my_state_root = HashValue::new(emu_state.state_root());
@@ -230,9 +262,13 @@ impl Challenger {
                     loop {
                         let remote_reader =
                             self.inner.client.state_reader(StateRootOption::Latest)?;
-                        let challenges = remote_reader.get_resource::<Challenges>(sender)?.unwrap();
+                        let challenges = remote_reader
+                            .get_resource::<Challenges>(self.proposer_address)?
+                            .unwrap();
                         for (id, c) in challenges.value.into_iter().enumerate() {
-                            self.handle_challenge(id as u64, c)?;
+                            if c.challenger == self.inner.self_address() {
+                                self.handle_challenge(id as u64, c)?;
+                            }
                         }
                         // sleep 3s
                         tokio::time::sleep(Duration::from_secs(3)).await;
@@ -242,7 +278,6 @@ impl Challenger {
         }
     }
     fn handle_challenge(&self, cid: u64, c: ChallengeData) -> anyhow::Result<()> {
-        let me = self.inner.self_address();
         let proposer_address = self.proposer_address;
         if c.l + 1 == c.r {
             let state_change = run_mips_state_change(
@@ -253,14 +288,16 @@ impl Challenger {
                 c.r as usize,
             )?;
             let state_proof = generate_step_proof(state_change);
-            let txn =
-                self.inner
-                    .build_txn(deny_state_transition(me, cid, state_proof.access_nodes))?;
+            let txn = self.inner.build_txn(deny_state_transition(
+                proposer_address,
+                cid,
+                state_proof.access_nodes,
+            ))?;
             let txn_info = self.inner.send_and_wait_txn(txn)?;
             if txn_info.status == TransactionStatusView::Executed {
                 info!(
                     "deny_state_transition of {}-{} from  {} -> {}, with root {} -> {}",
-                    me,
+                    proposer_address,
                     cid,
                     c.l,
                     c.r,
@@ -309,7 +346,7 @@ impl Challenger {
                     let txn =
                         self.inner
                             .build_txn(assert_state(proposer_address, cid, state_root))?;
-                    let txn_info = self.inner.send_and_wait_txn(txn)?;
+                    let _txn_info = self.inner.send_and_wait_txn(txn)?;
                     info!("assert state {:?} at step {}", state_root, next_step);
                 }
             }
