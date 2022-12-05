@@ -1,8 +1,11 @@
 pub mod move_resources;
 pub mod txn_builder;
 use crate::{
-    move_resources::{ChallengeData, Challenges},
-    txn_builder::{confirm_state_transition, contain_state, defend_state},
+    move_resources::{ChallengeData, Challenges, Global},
+    txn_builder::{
+        assert_state, confirm_state_transition, contain_state, create_challenge, defend_state,
+        deny_state_transition,
+    },
 };
 use omo::{
     arch::mips::{MipsProfile, MIPS},
@@ -12,8 +15,8 @@ use omo::{
     step_proof::generate_step_proof,
 };
 use starcoin_crypto::{ed25519::Ed25519PrivateKey, HashValue, PrivateKey};
-use starcoin_logger::prelude::info;
-use starcoin_rpc_api::types::{ContractCall, TransactionStatusView};
+use starcoin_logger::prelude::{error, info};
+use starcoin_rpc_api::types::{ContractCall, TransactionInfoView, TransactionStatusView};
 use starcoin_rpc_client::{RemoteStateReader, RpcClient, StateRootOption};
 use starcoin_types::{
     account_address::AccountAddress,
@@ -50,12 +53,18 @@ struct RunUnit {
 impl Proposer {
     pub async fn run(
         &self,
-        exec: Vec<u8>,
-        argv: Vec<String>,
-        envs: Vec<(String, String)>,
+        // exec: Vec<u8>,
+        // argv: Vec<String>,
+        // envs: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
         let inner = &self.inner;
-        let emu_state = run_mips(inner.omo_config.clone(), exec, argv, envs, None)?;
+        let emu_state = run_mips(
+            inner.omo_config.clone(),
+            self.inner.program.binary.clone(),
+            self.inner.program.argv.clone(),
+            self.inner.program.envs.clone(),
+            None,
+        )?;
 
         // declare state
         inner
@@ -102,7 +111,7 @@ impl Proposer {
                 .client
                 .chain_get_transaction_info(txn_hash)?
                 .unwrap();
-            info!("confirm_state_transition txn info: {:?}", txn_info);
+
             if txn_info.status == TransactionStatusView::Executed {
                 info!(
                     "confirm_state_transition of {}-{} from  {} -> {}, with root {} -> {}",
@@ -113,13 +122,15 @@ impl Proposer {
                     HashValue::new(state_proof.root_before),
                     HashValue::new(state_proof.root_after)
                 );
+            } else {
+                error!("confirm_state_transition failure with info: {:?}", txn_info);
             }
         } else {
             let next_step = (c.l + c.r) / 2;
             let r = self
                 .inner
                 .client
-                .contract_call(contain_state(me, cid, next_step, self.defend))?
+                .contract_call(contain_state(me, cid, next_step, true))?
                 .pop()
                 .unwrap();
             let already_proposed = r.0.as_bool().unwrap();
@@ -163,15 +174,147 @@ impl SharedData {
         .into_inner();
         Ok(txn)
     }
+    fn send_and_wait_txn(&self, txn: SignedUserTransaction) -> anyhow::Result<TransactionInfoView> {
+        let txn_hash = self.client.submit_transaction(txn)?;
+        let _ = self.client.watch_txn(txn_hash, None)?;
+        let txn_info = self.client.chain_get_transaction_info(txn_hash)?.unwrap();
+        Ok(txn_info)
+    }
 }
 
 impl Challenger {
     pub async fn run(
         &self,
-        exec: Vec<u8>,
-        argv: Vec<String>,
-        envs: Vec<(String, String)>,
+        // exec: Vec<u8>,
+        // argv: Vec<String>,
+        // envs: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
+        let self_address = self.inner.self_address();
+        loop {
+            let remote_reader = self.inner.client.state_reader(StateRootOption::Latest)?;
+            let declared_state = remote_reader.get_resource::<Global>(self.proposer_address)?;
+            if let Some(Global { declared_state }) = declared_state {
+                let emu_state = run_mips(
+                    self.inner.omo_config.clone(),
+                    self.inner.program.binary.clone(),
+                    self.inner.program.argv.clone(),
+                    self.inner.program.envs.clone(),
+                    None,
+                )?;
+                let my_state_root = HashValue::new(emu_state.state_root());
+                if my_state_root != declared_state {
+                    info!(
+                        "found fraud of address {}, it root {} mismatched expected {}",
+                        self.proposer_address, declared_state, my_state_root,
+                    );
+                    let txn = self.inner.build_txn(create_challenge(
+                        self.proposer_address,
+                        my_state_root,
+                        emu_state.steps,
+                    ))?;
+                    let txn_info = self.inner.send_and_wait_txn(txn)?;
+                    if txn_info.status == TransactionStatusView::Executed {
+                        info!(
+                            "create challenge success under {} at index {}",
+                            self.proposer_address,
+                            0 // TODO: change the hardcoded index
+                        );
+                    } else {
+                        error!(
+                            "create challenge failure, please check the code. txn info: {:?}",
+                            txn_info
+                        );
+                        continue;
+                    }
+
+                    loop {
+                        let remote_reader =
+                            self.inner.client.state_reader(StateRootOption::Latest)?;
+                        let challenges = remote_reader.get_resource::<Challenges>(sender)?.unwrap();
+                        for (id, c) in challenges.value.into_iter().enumerate() {
+                            self.handle_challenge(id as u64, c)?;
+                        }
+                        // sleep 3s
+                        tokio::time::sleep(Duration::from_secs(3)).await;
+                    }
+                }
+            }
+        }
+    }
+    fn handle_challenge(&self, cid: u64, c: ChallengeData) -> anyhow::Result<()> {
+        let me = self.inner.self_address();
+        let proposer_address = self.proposer_address;
+        if c.l + 1 == c.r {
+            let state_change = run_mips_state_change(
+                self.inner.omo_config.clone(),
+                self.inner.program.binary.clone(),
+                self.inner.program.argv.clone(),
+                self.inner.program.env.clone(),
+                c.r as usize,
+            )?;
+            let state_proof = generate_step_proof(state_change);
+            let txn =
+                self.inner
+                    .build_txn(deny_state_transition(me, cid, state_proof.access_nodes))?;
+            let txn_info = self.inner.send_and_wait_txn(txn)?;
+            if txn_info.status == TransactionStatusView::Executed {
+                info!(
+                    "deny_state_transition of {}-{} from  {} -> {}, with root {} -> {}",
+                    me,
+                    cid,
+                    c.l,
+                    c.r,
+                    HashValue::new(state_proof.root_before),
+                    HashValue::new(state_proof.root_after)
+                );
+            } else {
+                error!("deny_state_transition failure with info: {:?}", txn_info);
+            }
+        } else {
+            let next_step = (c.l + c.r) / 2;
+            let r = self
+                .inner
+                .client
+                .contract_call(contain_state(proposer_address, cid, next_step, true))?
+                .pop()
+                .unwrap();
+            let defended = r.0.as_bool().unwrap();
+
+            if !defended {
+                info!("waiting defender's response at step {}", next_step);
+            } else {
+                let asserted = self
+                    .inner
+                    .client
+                    .contract_call(contain_state(proposer_address, cid, next_step, false))?
+                    .pop()
+                    .unwrap()
+                    .0
+                    .as_bool()
+                    .unwrap();
+                if asserted {
+                    info!(
+                        "already asserted at step {}, wait for defender's next response",
+                        next_step
+                    );
+                } else {
+                    let state = run_mips(
+                        self.inner.omo_config.clone(),
+                        self.inner.program.binary.clone(),
+                        self.inner.program.argv.clone(),
+                        self.inner.program.env.clone(),
+                        Some(next_step as usize),
+                    )?;
+                    let state_root = HashValue::new(state.state_root());
+                    let txn =
+                        self.inner
+                            .build_txn(assert_state(proposer_address, cid, state_root))?;
+                    let txn_info = self.inner.send_and_wait_txn(txn)?;
+                    info!("assert state {:?} at step {}", state_root, next_step);
+                }
+            }
+        }
+        Ok(())
     }
 }
 

@@ -51,7 +51,12 @@ module omo::challenge_script {
         SimpleChallenge::confirm_state_transition(&sender, proposer, challenge_id);
     }
 
-    public(script) fun deny_state_transition(sender: signer, proposer_address: address, challenge_id: u64, state_data: vector<u8>) {
+    public(script) fun deny_state_transition(
+        sender: signer,
+        proposer_address: address,
+        challenge_id: u64,
+        state_data: vector<u8>
+    ) {
         {
             let access_nodes = {
                 let r = rlp::new(state_data);
