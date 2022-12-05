@@ -1,5 +1,6 @@
 pub mod move_resources;
 pub mod txn_builder;
+
 use crate::{
     move_resources::{ChallengeData, Challenges, Global},
     txn_builder::{
@@ -26,7 +27,7 @@ use starcoin_types::{
     },
 };
 use starcoin_vm_types::state_view::StateReaderExt;
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 pub struct SharedData {
     client: RpcClient,
@@ -67,7 +68,7 @@ impl Proposer {
             },
         }
     }
-    pub async fn run(
+    pub fn run(
         &self,
         // exec: Vec<u8>,
         // argv: Vec<String>,
@@ -98,7 +99,8 @@ impl Proposer {
                 self.handle_challenge(id as u64, c)?;
             }
             // sleep 3s
-            tokio::time::sleep(Duration::from_secs(3)).await;
+
+            sleep(Duration::from_secs(3));
         }
         Ok(())
     }
@@ -146,10 +148,7 @@ impl Proposer {
                 .unwrap();
             let already_proposed = r.0.as_bool().unwrap();
             if already_proposed {
-                info!(
-                    "already defend state {:?} at step {}",
-                    state_root, next_step
-                );
+                info!("already defend state at step {}", next_step);
             } else {
                 let state = run_mips(
                     self.inner.omo_config.clone(),
@@ -216,7 +215,7 @@ impl Challenger {
             },
         }
     }
-    pub async fn run(
+    pub fn run(
         &self,
         // exec: Vec<u8>,
         // argv: Vec<String>,
@@ -271,7 +270,7 @@ impl Challenger {
                             }
                         }
                         // sleep 3s
-                        tokio::time::sleep(Duration::from_secs(3)).await;
+                        sleep(Duration::from_secs(3));
                     }
                 }
             }

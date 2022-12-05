@@ -11,16 +11,21 @@ use starcoin_vm_types::language_storage::FunctionId;
 use std::str::FromStr;
 // TODO: change me
 lazy_static! {
-    pub static ref CHALLENGE_ADDRESS: AccountAddress = AccountAddress::from_str("0x1").unwrap();
-    pub static ref CHALLENGE_MODULE: ModuleId = ModuleId::new(
+    pub static ref CHALLENGE_ADDRESS: AccountAddress =
+        AccountAddress::from_str("0xfc2cd714a9d954dcec4ca5366d2461c4").unwrap();
+    pub static ref CHALLENGE_ENTRYPOINT: ModuleId = ModuleId::new(
         *CHALLENGE_ADDRESS,
         Identifier::from_str("challenge_script").unwrap(),
+    );
+    pub static ref CHALLENGE_MODULE: ModuleId = ModuleId::new(
+        *CHALLENGE_ADDRESS,
+        Identifier::from_str("SimpleChallenge").unwrap(),
     );
 }
 
 pub fn declare_state(final_state: HashValue) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
-        CHALLENGE_MODULE.clone(),
+        CHALLENGE_ENTRYPOINT.clone(),
         Identifier::from_str("declare_state").unwrap(),
         vec![],
         vec![bcs_ext::to_bytes(&final_state.to_vec()).unwrap()],
@@ -33,7 +38,7 @@ pub fn create_challenge(
     step_count: u64,
 ) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
-        CHALLENGE_MODULE.clone(),
+        CHALLENGE_ENTRYPOINT.clone(),
         Identifier::from_str("create_challenge").unwrap(),
         vec![],
         vec![
@@ -50,7 +55,7 @@ pub fn assert_state(
     state: HashValue,
 ) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
-        CHALLENGE_MODULE.clone(),
+        CHALLENGE_ENTRYPOINT.clone(),
         Identifier::from_str("assert_state").unwrap(),
         vec![],
         vec![
@@ -63,7 +68,7 @@ pub fn assert_state(
 
 pub fn defend_state(challenge_id: u64, state: HashValue) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
-        CHALLENGE_MODULE.clone(),
+        CHALLENGE_ENTRYPOINT.clone(),
         Identifier::from_str("defend_state").unwrap(),
         vec![],
         vec![
@@ -79,7 +84,7 @@ pub fn confirm_state_transition(
     state_data: Vec<u8>,
 ) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
-        CHALLENGE_MODULE.clone(),
+        CHALLENGE_ENTRYPOINT.clone(),
         Identifier::from_str("confirm_state_transition").unwrap(),
         vec![],
         vec![
@@ -96,7 +101,7 @@ pub fn deny_state_transition(
     state_data: Vec<u8>,
 ) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
-        CHALLENGE_MODULE.clone(),
+        CHALLENGE_ENTRYPOINT.clone(),
         Identifier::from_str("deny_state_transition").unwrap(),
         vec![],
         vec![

@@ -12,7 +12,9 @@ struct Options {
     /// config file of the emulation.
     config_file: PathBuf,
     /// exec file
+    #[clap(long = "exec")]
     exec: PathBuf,
+    #[clap(long = "arg")]
     args: Vec<String>,
     #[clap(long = "env", parse(try_from_str=parse_key_val))]
     envs: Vec<(String, String)>,
@@ -43,8 +45,7 @@ enum Commands {
     },
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     env_logger::builder()
         .filter_level(LevelFilter::Info)
         .parse_default_env()
@@ -84,7 +85,7 @@ async fn main() -> anyhow::Result<()> {
                 client,
                 fault_step,
             );
-            p.run().await?;
+            p.run()?;
         }
         Commands::Challenger { proposer } => {
             let challenger = omo_workflow::Challenger::new(
@@ -98,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
                 client,
                 proposer,
             );
-            challenger.run().await?;
+            challenger.run()?;
         }
     }
 

@@ -8,4 +8,4 @@ version = "0.1.0"
 [addresses]
 signed_integer = "_"
 [dev-addresses]
-signed_integer =  "0x42"
+signed_integer = "0xfc2cd714a9d954dcec4ca5366d2461c4"
