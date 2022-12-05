@@ -72,7 +72,11 @@ pub fn defend_state(challenge_id: u64, state: HashValue) -> TransactionPayload {
     ))
 }
 
-pub fn confirm_state_transition(proposer: AccountAddress, challenge_id: u64) -> TransactionPayload {
+pub fn confirm_state_transition(
+    proposer: AccountAddress,
+    challenge_id: u64,
+    state_data: Vec<u8>,
+) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
         CHALLENGE_MODULE.clone(),
         Identifier::from_str("confirm_state_transition").unwrap(),
@@ -80,11 +84,16 @@ pub fn confirm_state_transition(proposer: AccountAddress, challenge_id: u64) -> 
         vec![
             bcs_ext::to_bytes(&proposer).unwrap(),
             bcs_ext::to_bytes(&challenge_id).unwrap(),
+            bcs_ext::to_bytes(&state_data).unwrap(),
         ],
     ))
 }
 
-pub fn deny_state_transition(proposer: AccountAddress, challenge_id: u64) -> TransactionPayload {
+pub fn deny_state_transition(
+    proposer: AccountAddress,
+    challenge_id: u64,
+    state_data: Vec<u8>,
+) -> TransactionPayload {
     TransactionPayload::ScriptFunction(ScriptFunction::new(
         CHALLENGE_MODULE.clone(),
         Identifier::from_str("deny_state_transition").unwrap(),
@@ -92,6 +101,7 @@ pub fn deny_state_transition(proposer: AccountAddress, challenge_id: u64) -> Tra
         vec![
             bcs_ext::to_bytes(&proposer).unwrap(),
             bcs_ext::to_bytes(&challenge_id).unwrap(),
+            bcs_ext::to_bytes(&state_data).unwrap(),
         ],
     ))
 }

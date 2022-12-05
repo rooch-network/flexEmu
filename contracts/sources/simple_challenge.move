@@ -196,7 +196,7 @@ module omo::SimpleChallenge {
         }
     }
 
-    public fun confirm_state_transition(sender: &signer, proposer: address, challenge_id: u64) acquires Challenges {
+    public fun deny_state_transition(sender: &signer, proposer: address, challenge_id: u64) acquires Challenges {
         let challenges = borrow_global<Challenges>(proposer);
         let c = Vector::borrow(&challenges.value, challenge_id);
 
@@ -211,7 +211,7 @@ module omo::SimpleChallenge {
         // TODO: emit challenge wins event
     }
 
-    public fun deny_state_transition(sender: &signer, proposer_address: address, challenge_id: u64) acquires Challenges {
+    public fun confirm_state_transition(sender: &signer, proposer_address: address, challenge_id: u64) acquires Challenges {
         let challenges = borrow_global<Challenges>(proposer_address);
         let c = Vector::borrow(&challenges.value, challenge_id);
 

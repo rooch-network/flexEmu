@@ -2,7 +2,7 @@ pub mod move_resources;
 pub mod txn_builder;
 use crate::{
     move_resources::{ChallengeData, Challenges},
-    txn_builder::{contain_state, defend_state},
+    txn_builder::{confirm_state_transition, contain_state, defend_state},
 };
 use omo::{
     arch::mips::{MipsProfile, MIPS},
@@ -13,7 +13,7 @@ use omo::{
 };
 use starcoin_crypto::{ed25519::Ed25519PrivateKey, HashValue, PrivateKey};
 use starcoin_logger::prelude::info;
-use starcoin_rpc_api::types::ContractCall;
+use starcoin_rpc_api::types::{ContractCall, TransactionStatusView};
 use starcoin_rpc_client::{RemoteStateReader, RpcClient, StateRootOption};
 use starcoin_types::{
     account_address::AccountAddress,
@@ -24,15 +24,22 @@ use starcoin_types::{
     },
 };
 use starcoin_vm_types::state_view::StateReaderExt;
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
-pub struct Roler {
+pub struct SharedData {
     client: RpcClient,
     key: Ed25519PrivateKey,
-    defend: bool,
-    fault_step: Option<u64>,
     omo_config: OmoConfig,
     program: RunUnit,
+}
+pub struct Challenger {
+    inner: SharedData,
+    proposer_address: AccountAddress,
+}
+
+pub struct Proposer {
+    fault_step: Option<u64>,
+    inner: SharedData,
 }
 struct RunUnit {
     binary: Vec<u8>,
@@ -40,46 +47,77 @@ struct RunUnit {
     env: Vec<(String, String)>,
 }
 
-impl Roler {
+impl Proposer {
     pub async fn run(
-        self,
+        &self,
         exec: Vec<u8>,
         argv: Vec<String>,
         envs: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
-        let emu_state = run_mips(self.omo_config.clone(), exec, argv, envs)?;
+        let inner = &self.inner;
+        let emu_state = run_mips(inner.omo_config.clone(), exec, argv, envs, None)?;
 
         // declare state
-        self.client
+        inner
+            .client
             .submit_transaction(self.build_txn(txn_builder::declare_state(HashValue::new(
                 emu_state.state_root(),
             )))?)?;
 
-        let sender = AuthenticationKey::ed25519(&self.key.public_key()).derived_address();
+        let sender = AuthenticationKey::ed25519(&inner.key.public_key()).derived_address();
         loop {
-            let remote_reader = self.client.state_reader(StateRootOption::Latest)?;
+            let remote_reader = inner.client.state_reader(StateRootOption::Latest)?;
             let challenges = remote_reader.get_resource::<Challenges>(sender)?.unwrap();
-            for c in challenges.value {
-                handle_challenge(&self, c)
+            for (id, c) in challenges.value.into_iter().enumerate() {
+                self.handle_challenge(id as u64, c)?;
             }
+            // sleep 3s
+            tokio::time::sleep(Duration::from_secs(3)).await;
         }
         Ok(())
     }
     async fn handle_challenge(&self, cid: u64, c: ChallengeData) -> anyhow::Result<()> {
-        let me = AuthenticationKey::ed25519(&self.key.public_key()).derived_address();
+        let me = self.inner.self_address();
 
         /// already stopped
         if c.l + 1 == c.r {
             let state_change = run_mips_state_change(
-                self.omo_config.clone(),
-                self.program.binary.clone(),
-                self.program.argv.clone(),
-                self.program.env.clone(),
+                self.inner.omo_config.clone(),
+                self.inner.program.binary.clone(),
+                self.inner.program.argv.clone(),
+                self.inner.program.env.clone(),
                 c.r as usize,
             )?;
+            let state_proof = generate_step_proof(state_change);
+
+            let txn = self.inner.build_txn(confirm_state_transition(
+                me,
+                cid,
+                state_proof.access_nodes,
+            ))?;
+            let txn_hash = self.inner.client.submit_transaction(txn)?;
+            let _ = self.inner.client.watch_txn(txn_hash, None)?;
+            let txn_info = self
+                .inner
+                .client
+                .chain_get_transaction_info(txn_hash)?
+                .unwrap();
+            info!("confirm_state_transition txn info: {:?}", txn_info);
+            if txn_info.status == TransactionStatusView::Executed {
+                info!(
+                    "confirm_state_transition of {}-{} from  {} -> {}, with root {} -> {}",
+                    me,
+                    cid,
+                    c.l,
+                    c.r,
+                    HashValue::new(state_proof.root_before),
+                    HashValue::new(state_proof.root_after)
+                );
+            }
         } else {
             let next_step = (c.l + c.r) / 2;
             let r = self
+                .inner
                 .client
                 .contract_call(contain_state(me, cid, next_step, self.defend))?
                 .pop()
@@ -87,23 +125,28 @@ impl Roler {
             let already_proposed = r.0.as_bool().unwrap();
             if !already_proposed {
                 let state = run_mips(
-                    self.omo_config.clone(),
-                    self.program.binary.clone(),
-                    self.program.argv.clone(),
-                    self.program.env.clone(),
+                    self.inner.omo_config.clone(),
+                    self.inner.program.binary.clone(),
+                    self.inner.program.argv.clone(),
+                    self.inner.program.env.clone(),
                     Some(next_step as usize),
                 )?;
                 let state_root = HashValue::new(state.state_root());
                 let r = self
+                    .inner
                     .client
                     .submit_transaction(self.build_txn(defend_state(cid, state_root))?)?;
-                self.client.watch_txn(r, None)?;
+                self.inner.client.watch_txn(r, None)?;
                 info!("defend state {:?} at step {}", state_root, next_step);
             }
         }
         Ok(())
     }
-
+}
+impl SharedData {
+    fn self_address(&self) -> AccountAddress {
+        AuthenticationKey::ed25519(&self.key.public_key()).derived_address()
+    }
     fn build_txn(&self, payload: TransactionPayload) -> anyhow::Result<SignedUserTransaction> {
         let sender = AuthenticationKey::ed25519(&self.key.public_key()).derived_address();
         let remote_reader = self.client.state_reader(StateRootOption::Latest)?;
@@ -119,6 +162,16 @@ impl Roler {
         .sign(&self.key, self.key.public_key())?
         .into_inner();
         Ok(txn)
+    }
+}
+
+impl Challenger {
+    pub async fn run(
+        &self,
+        exec: Vec<u8>,
+        argv: Vec<String>,
+        envs: Vec<(String, String)>,
+    ) -> anyhow::Result<()> {
     }
 }
 
