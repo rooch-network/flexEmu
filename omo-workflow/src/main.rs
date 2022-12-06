@@ -36,7 +36,7 @@ struct Options {
 #[derive(Parser)]
 enum Commands {
     Proposer {
-        fault_step: Option<u64>,
+        fault_step: Option<usize>,
     },
     Challenger {
         #[clap(long = "proposer")]

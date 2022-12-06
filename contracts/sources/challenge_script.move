@@ -8,14 +8,18 @@ module omo::challenge_script {
     public(script) fun declare_state(signer: signer, final_state: vector<u8>) {
         SimpleChallenge::declare_state(&signer, hash_value::new(final_state));
     }
+    public(script) fun clean_state(signer: signer) {
+        SimpleChallenge::clean_state(&signer);
+    }
+
 
     public(script) fun create_challenge(
         signer: signer,
         proposer_address: address,
         final_system_state: vector<u8>,
         step_count: u64
-    ): u64 {
-        SimpleChallenge::create_challenge(&signer, proposer_address, hash_value::new(final_system_state), step_count)
+    ) {
+        SimpleChallenge::create_challenge(&signer, proposer_address, hash_value::new(final_system_state), step_count);
     }
 
     public(script) fun assert_state(

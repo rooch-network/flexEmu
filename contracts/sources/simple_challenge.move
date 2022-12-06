@@ -74,6 +74,15 @@ module omo::SimpleChallenge {
         move_to(signer, challenges);
     }
 
+    /// only used in omo demo
+    public fun clean_state(signer: &signer) acquires Global, Challenges {
+        if (exists<Global>(Signer::address_of(signer))) {
+            let Challenges {value} = move_from<Challenges>(Signer::address_of(signer));
+            Vector::destroy_empty(value);
+            let Global{declared_state: _}= move_from<Global>(Signer::address_of(signer));
+        }
+    }
+
     public fun create_challenge(signer: &signer, proposer_address: address, final_system_state: HashValue, step_count: u64): u64
     acquires Global, Challenges {
         //let challenge_id = next_challenge_id(proposer_address);
