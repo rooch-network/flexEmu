@@ -6,6 +6,9 @@ module omo::mips_emulator {
     public fun create(signer: &signer) {
         memory::create(signer);
     }
+    public fun create_if_not_exists(signer: &signer) {
+        memory::create_if_not_exists(signer);
+    }
     public fun add_trie_data(emulator_addr: address, data: vector<u8>) {
         memory::batch_add_trie_data(emulator_addr, vector[data])
     }

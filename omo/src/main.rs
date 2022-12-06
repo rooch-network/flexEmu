@@ -7,6 +7,7 @@ use omo::{
     emulator::{Emulator, StateChange},
     errors::EmulatorError,
     os::linux::LinuxRunner,
+    parse_key_val,
     step_proof::generate_step_proof,
 };
 use std::{
@@ -70,7 +71,7 @@ fn main() -> Result<(), EmulatorError> {
             let binary = read(exec.as_path()).unwrap();
             let argv = {
                 let mut a = args;
-                a.insert(0, exec.display().to_string());
+                a.insert(0, exec.file_name().unwrap().to_string_lossy().to_string());
                 a
             };
             let env = envs;
@@ -84,7 +85,8 @@ fn main() -> Result<(), EmulatorError> {
             let load_info = emu.load(&binary, argv, env)?;
             info!("load info: {:?}", &load_info);
 
-            emu.run(load_info.entrypoint, None, None, None)?;
+            let total_steps = emu.run(load_info.entrypoint, None, None, None)?;
+            info!("steps: {}", total_steps);
         }
         SubCommands::GenState {
             exec,
@@ -96,7 +98,7 @@ fn main() -> Result<(), EmulatorError> {
             let binary = read(exec.as_path()).unwrap();
             let argv = {
                 let mut a = args;
-                a.insert(0, exec.display().to_string());
+                a.insert(0, exec.file_name().unwrap().to_string_lossy().to_string());
                 a
             };
             let env = envs;
@@ -115,37 +117,7 @@ fn main() -> Result<(), EmulatorError> {
             let output_dir = output_dir
                 .unwrap_or(env::current_dir().unwrap())
                 .join(format!("step-{}", steps));
-            create_dir_all(&output_dir).unwrap();
-            serde_json::to_writer_pretty(
-                std::fs::File::options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(output_dir.join("before_state.json"))
-                    .unwrap(),
-                &state_change.state_before,
-            )
-            .unwrap();
-            serde_json::to_writer_pretty(
-                std::fs::File::options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(output_dir.join("after_state.json"))
-                    .unwrap(),
-                &state_change.state_after,
-            )
-            .unwrap();
-            serde_json::to_writer_pretty(
-                std::fs::File::options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(output_dir.join("mem_access.json"))
-                    .unwrap(),
-                &state_change.access,
-            )
-            .unwrap();
+            state_change.output_to(output_dir.clone());
             let step_proof = generate_step_proof(state_change);
             serde_json::to_writer_pretty(
                 std::fs::File::options()
@@ -197,20 +169,6 @@ fn main() -> Result<(), EmulatorError> {
         }
     };
     Ok(())
-}
-
-/// Parse a single key-value pair
-fn parse_key_val<T, U>(s: &str) -> Result<(T, U), anyhow::Error>
-where
-    T: std::str::FromStr,
-    T::Err: Error + 'static + Sync + Send,
-    U: std::str::FromStr,
-    U::Err: Error + 'static + Sync + Send,
-{
-    let pos = s
-        .find('=')
-        .ok_or_else(|| anyhow::anyhow!("invalid KEY=value: no `=` found in `{}`", s))?;
-    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
 const TOTAL_MEMORY: usize = 0x180000000;

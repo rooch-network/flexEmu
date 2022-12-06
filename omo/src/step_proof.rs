@@ -11,11 +11,11 @@ use unicorn_engine::RegisterMIPS;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StepProof {
     #[serde(with = "HexForm")]
-    root_before: [u8; 32],
+    pub root_before: [u8; 32],
     #[serde(with = "HexForm")]
-    root_after: [u8; 32],
+    pub root_after: [u8; 32],
     #[serde(with = "HexForm")]
-    access_nodes: Vec<u8>,
+    pub access_nodes: Vec<u8>,
 }
 
 pub fn generate_step_proof(change: StateChange) -> StepProof {
