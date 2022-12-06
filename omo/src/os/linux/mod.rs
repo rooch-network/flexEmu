@@ -1,5 +1,6 @@
 use std::{
-    cell::RefCell, collections::HashMap, env, mem, os::unix::ffi::OsStrExt, rc::Rc, str::FromStr,
+    cell::RefCell, collections::HashMap, env, io::Write, mem, os::unix::ffi::OsStrExt, rc::Rc,
+    str::FromStr,
 };
 
 use log::info;
@@ -928,6 +929,7 @@ impl Inner {
         }
         Ok(size)
     }
+
     fn writev<'a, A: ArchT>(
         &mut self,
         core: &mut Engine<'a, A>,
