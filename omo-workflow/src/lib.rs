@@ -27,7 +27,7 @@ use starcoin_types::{
     },
 };
 use starcoin_vm_types::state_view::StateReaderExt;
-use std::{thread::sleep, time::Duration};
+use std::{path::PathBuf, thread::sleep, time::Duration};
 
 pub struct SharedData {
     client: RpcClient,
@@ -113,6 +113,9 @@ impl Proposer {
         Ok(())
     }
     fn handle_challenge(&self, cid: u64, c: ChallengeData) -> anyhow::Result<()> {
+        if c.success != 0 {
+            return Ok(());
+        }
         let me = self.inner.self_address();
 
         // already stopped
@@ -296,7 +299,7 @@ impl Challenger {
                 if challenges
                     .value
                     .iter()
-                    .find(|c| c.challenger == self.inner.self_address())
+                    .find(|c| c.challenger == self.inner.self_address() && c.success == 0)
                     .is_none()
                 {
                     info!(
@@ -324,19 +327,17 @@ impl Challenger {
                     }
                 }
 
-                loop {
-                    let remote_reader = self.inner.client.state_reader(StateRootOption::Latest)?;
-                    let challenges = remote_reader
-                        .get_resource::<Challenges>(self.proposer_address)?
-                        .unwrap();
-                    for (id, c) in challenges.value.into_iter().enumerate() {
-                        if c.challenger == self.inner.self_address() {
-                            self.handle_challenge(id as u64, c)?;
-                        }
+                let remote_reader = self.inner.client.state_reader(StateRootOption::Latest)?;
+                let challenges = remote_reader
+                    .get_resource::<Challenges>(self.proposer_address)?
+                    .unwrap();
+                for (id, c) in challenges.value.into_iter().enumerate() {
+                    if c.challenger == self.inner.self_address() && c.success == 0 {
+                        self.handle_challenge(id as u64, c)?;
                     }
-                    // sleep 3s
-                    sleep(Duration::from_secs(3));
                 }
+                // sleep 3s
+                sleep(Duration::from_secs(3));
             } else {
                 info!("waiting for proposer's proposal data");
             }
@@ -354,6 +355,12 @@ impl Challenger {
                 self.inner.program.env.clone(),
                 c.l as usize,
             )?;
+            debug_assert!(c.r == state_change.step);
+            info!(
+                "prepare to deny_state_transition by run step {} -> {}",
+                c.l, c.r
+            );
+            state_change.output_to(PathBuf::from("tmp"));
             let state_proof = generate_step_proof(state_change);
             let txn = self.inner.build_txn(deny_state_transition(
                 proposer_address,

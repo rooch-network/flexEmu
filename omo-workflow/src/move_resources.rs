@@ -11,6 +11,7 @@ pub struct ChallengeData {
     pub asserted_state: MoveTable,
     pub defended_state: MoveTable,
     pub challenger: AccountAddress,
+    pub success: u8,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Global {

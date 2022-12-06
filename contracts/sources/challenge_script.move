@@ -47,7 +47,7 @@ module omo::challenge_script {
                 rlp::as_valuelist(&r)
             };
 
-            mips_emulator::create(&sender);
+            mips_emulator::create_if_not_exists(&sender);
             let emu_addr = Signer::address_of(&sender);
 
             mips_emulator::batch_add_trie_data(emu_addr, access_nodes);
@@ -67,7 +67,7 @@ module omo::challenge_script {
                 rlp::as_valuelist(&r)
             };
 
-            mips_emulator::create(&sender);
+            mips_emulator::create_if_not_exists(&sender);
             let emu_addr = Signer::address_of(&sender);
 
             mips_emulator::batch_add_trie_data(emu_addr, access_nodes);

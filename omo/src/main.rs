@@ -71,7 +71,7 @@ fn main() -> Result<(), EmulatorError> {
             let binary = read(exec.as_path()).unwrap();
             let argv = {
                 let mut a = args;
-                a.insert(0, exec.display().to_string());
+                a.insert(0, exec.file_name().unwrap().to_string_lossy().to_string());
                 a
             };
             let env = envs;
@@ -98,7 +98,7 @@ fn main() -> Result<(), EmulatorError> {
             let binary = read(exec.as_path()).unwrap();
             let argv = {
                 let mut a = args;
-                a.insert(0, exec.display().to_string());
+                a.insert(0, exec.file_name().unwrap().to_string_lossy().to_string());
                 a
             };
             let env = envs;
@@ -117,37 +117,7 @@ fn main() -> Result<(), EmulatorError> {
             let output_dir = output_dir
                 .unwrap_or(env::current_dir().unwrap())
                 .join(format!("step-{}", steps));
-            create_dir_all(&output_dir).unwrap();
-            serde_json::to_writer_pretty(
-                std::fs::File::options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(output_dir.join("before_state.json"))
-                    .unwrap(),
-                &state_change.state_before,
-            )
-            .unwrap();
-            serde_json::to_writer_pretty(
-                std::fs::File::options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(output_dir.join("after_state.json"))
-                    .unwrap(),
-                &state_change.state_after,
-            )
-            .unwrap();
-            serde_json::to_writer_pretty(
-                std::fs::File::options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(output_dir.join("mem_access.json"))
-                    .unwrap(),
-                &state_change.access,
-            )
-            .unwrap();
+            state_change.output_to(output_dir.clone());
             let step_proof = generate_step_proof(state_change);
             serde_json::to_writer_pretty(
                 std::fs::File::options()

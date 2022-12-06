@@ -10,6 +10,7 @@ module omo::memory {
     use StarcoinFramework::Option;
     use trie::rlp;
     use trie::rlp_stream;
+    use StarcoinFramework::Signer;
 
     const MISSING_REG_DATA: u64 = 200;
     const MEM_ACCESS_MUTST_BE_ALIGNED_TO_4BYTES: u64 = 401;
@@ -42,6 +43,11 @@ module omo::memory {
         move_to(signer, MemoryStorage {
             data: Option::some(trie::new()),
         })
+    }
+    public fun create_if_not_exists(signer: &signer) {
+        if (!exists<MemoryStorage>(Signer::address_of(signer))) {
+            create(signer)
+        }
     }
 
     public fun batch_add_trie_data(mem_addr: address, data: vector<vector<u8>>) acquires MemoryStorage {

@@ -31,6 +31,12 @@ module omo::SimpleChallenge {
         asserted_state: Table::Table<u64, HashValue>,
         defended_state: Table::Table<u64, HashValue>,
         challenger: address,
+
+        /// mark whether the challenge success or fail, or still ongoing.
+        /// 0: ongoing.
+        /// 1: success
+        /// 2: failure
+        success: u8,
     }
 
     struct Challenges has key,store {
@@ -96,6 +102,7 @@ module omo::SimpleChallenge {
             asserted_state: Table::new(),
             defended_state: Table::new(),
             challenger: Signer::address_of(signer),
+            success: 0,
         };
         Table::add(&mut challenge_data.defended_state, step_count, final_system_state);
 
@@ -206,8 +213,8 @@ module omo::SimpleChallenge {
     }
 
     public fun deny_state_transition(sender: &signer, proposer: address, challenge_id: u64) acquires Challenges {
-        let challenges = borrow_global<Challenges>(proposer);
-        let c = Vector::borrow(&challenges.value, challenge_id);
+        let challenges = borrow_global_mut<Challenges>(proposer);
+        let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
         assert!(!is_searching_(c), ERR_BINARY_SEARCH_NOT_FINISHED);
 
@@ -216,13 +223,13 @@ module omo::SimpleChallenge {
 
         let right_asserted_state = Table::borrow(&c.asserted_state, c.r);
         assert!(step_state == hash_value::to_bytes(*right_asserted_state), ERR_WRONG_ASSERTED_STATE_FOR_CHALLENGER);
-
+        c.success = 2;
         // TODO: emit challenge wins event
     }
 
     public fun confirm_state_transition(sender: &signer, proposer_address: address, challenge_id: u64) acquires Challenges {
-        let challenges = borrow_global<Challenges>(proposer_address);
-        let c = Vector::borrow(&challenges.value, challenge_id);
+        let challenges = borrow_global_mut<Challenges>(proposer_address);
+        let c = Vector::borrow_mut(&mut challenges.value, challenge_id);
 
         // if c.L + 1 == c.R, run the following code
         assert!(!is_searching_(c), ERR_BINARY_SEARCH_NOT_FINISHED);
@@ -232,7 +239,7 @@ module omo::SimpleChallenge {
 
         let right_defended_state = Table::borrow(&c.defended_state, c.r);
         assert!(step_state == hash_value::to_bytes(*right_defended_state), ERR_WRONG_ASSERTED_STATE_FOR_DEFENDER);
-
+        c.success = 1;
         // TODO: emit defender wins event
     }
 }

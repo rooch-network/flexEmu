@@ -13,7 +13,7 @@ use ethtrie_codec::{EthTrieLayout, KeccakHasher, RlpNodeCodec};
 use log::{info, trace};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, fs::create_dir_all, path::PathBuf, rc::Rc};
 use trie_db::{NodeCodec, TrieMut};
 use unicorn_engine::unicorn_const::{HookType, MemType, Mode};
 
@@ -236,6 +236,43 @@ pub struct StateChange {
     pub step: u64,
     pub access: Vec<MemAccess>,
 }
+
+impl StateChange {
+    pub fn output_to(&self, output_dir: PathBuf) {
+        create_dir_all(&output_dir).unwrap();
+        serde_json::to_writer_pretty(
+            std::fs::File::options()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(output_dir.join("before_state.json"))
+                .unwrap(),
+            &self.state_before,
+        )
+        .unwrap();
+        serde_json::to_writer_pretty(
+            std::fs::File::options()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(output_dir.join("after_state.json"))
+                .unwrap(),
+            &self.state_after,
+        )
+        .unwrap();
+        serde_json::to_writer_pretty(
+            std::fs::File::options()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(output_dir.join("mem_access.json"))
+                .unwrap(),
+            &self.access,
+        )
+        .unwrap();
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct MemAccess {
     /// read or write
