@@ -27,7 +27,7 @@ use starcoin_types::{
     },
 };
 use starcoin_vm_types::state_view::StateReaderExt;
-use std::{path::PathBuf, thread::sleep, time::Duration};
+use std::{thread::sleep, time::Duration};
 
 pub struct SharedData {
     client: RpcClient,
@@ -110,7 +110,6 @@ impl Proposer {
 
             sleep(Duration::from_secs(3));
         }
-        Ok(())
     }
     fn handle_challenge(&self, cid: u64, c: ChallengeData) -> anyhow::Result<()> {
         if c.success != 0 {
@@ -360,7 +359,6 @@ impl Challenger {
                 "prepare to deny_state_transition by run step {} -> {}",
                 c.l, c.r
             );
-            state_change.output_to(PathBuf::from("tmp"));
             let state_proof = generate_step_proof(state_change);
             let txn = self.inner.build_txn(deny_state_transition(
                 proposer_address,
