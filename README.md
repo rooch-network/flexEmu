@@ -4,9 +4,7 @@ Bytecode emulator with per-step state proof.
 It can be used to generate challenge proof of optimistic rollup,
 and other scenarios in blockchain which need state proof.
 
-- **[Overview](docs/overview.md)** / [[概览]](docs/ch/overview.md) 
-
-- **[Documents](docs)**
+See more introductions here: [en](docs/overview.md) / [zh](docs/ch/overview.md).
 
 ## Platforms
 
