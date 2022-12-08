@@ -15,10 +15,6 @@ Unlike Qiling, the execution environment of contracts in blockchain is relativel
 
 We refer to this contract execution environment as OMO.
 
-## Origins
-
-TODO
-
 ## Learn More
 
 You can learn OMO from [Documents](guidelines.md).
