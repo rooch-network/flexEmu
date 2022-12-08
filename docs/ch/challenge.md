@@ -22,7 +22,7 @@
 
 比如, arbitrum 定义了一套自己的虚拟机 AVM 以及对应的底层指令，AVM 在执行合约代码时，会保存不同类型的数据，比如，代码块，内存块，寄存器，调用栈等等，然后以一种高效的方式生成这些数据的证明。
 
-![arb one-step proof](./arb-onestep-proof.png)
+![arb one-step proof](../imgs/arb-onestep-proof.png)
 
 又如，optimisim 最新推出的 [cannon](https://github.com/ethereum-optimism/cannon) 也是基于类似的状态证明生成原理。
 区别在于， cannon 并没有自定义一套新的虚拟机，而是将现有的 EVM 虚拟机代码编译成 MIPS 指令集的汇编代码。
