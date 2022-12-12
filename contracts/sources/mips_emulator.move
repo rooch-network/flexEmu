@@ -1,3 +1,4 @@
+/// A mips emulator which can run a single mips instruction based on pre-added state.
 module omo::mips_emulator {
     use omo::memory;
     use omo::mips;
