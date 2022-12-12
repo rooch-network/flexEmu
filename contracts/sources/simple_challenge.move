@@ -1,4 +1,4 @@
-
+/// Challenge contracts used by layer2 roles like defender/challenger.
 module omo::SimpleChallenge {
     use StarcoinFramework::Table;
     use StarcoinFramework::Vector;

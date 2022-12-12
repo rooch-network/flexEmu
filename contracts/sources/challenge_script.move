@@ -1,3 +1,4 @@
+/// Public entrpoints functions for onchain challenges.
 module omo::challenge_script {
     use omo::SimpleChallenge;
     use trie::hash_value;
