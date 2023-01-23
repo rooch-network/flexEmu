@@ -33,13 +33,21 @@ The project contains two Rust crates:
 - Docker: cross needs it.
 - [cmake](https://cmake.org/download/) >= 3.12
 
-#### Using MUSL tools
+#### Using MUSL toolchains
 
 - Add mips-unknown-linux-musl supports:
+
 ```shell
 rustup target add mips-unknown-linux-musl
 ```
+
 - Download musl toolchain from [musl.cc](https://musl.cc): mips-linux-musl-cross
+
+- For Apple Silicon:
+
+```shell
+brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-mips
+```
 
 ### Run Example
 
@@ -55,22 +63,26 @@ file target/mips-unknown-linux-musl/release/rust-mips-example
 **If using MUSL tools:**
 
 - Set `linker = "mips-linux-musl-gcc"` in [cargo config](rust-mips-example/.cargo/config.toml)
+
 ```shell
-cargo build --target mips-unknown-linux-musl --release --no-default-features
+cargo build --target mips-unknown-linux-musl --release 
 ```
 
 **Compile `OMO`:**
+
 ```shell
 cargo build --release
 ```
 
 **Run:**
+
 ```shell
 cd ./omo
 cargo run -- --config config.toml.example --env E1=a --env E2=b ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
 ```
 
 **Output:**
+
 ```
 Run ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example
 E1=a
