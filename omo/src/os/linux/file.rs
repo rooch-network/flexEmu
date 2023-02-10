@@ -22,7 +22,15 @@ pub fn open(path: &mut String, flags: u64, mode: u64) -> i64 {
     let mut c_path = path.as_bytes().to_vec();
     c_path.extend_from_slice(b"\x00");
 
-    unsafe { syscall_4(LinuxSysCalls::Open as u64, path as u64, flags, open_mode, 0) }
+    unsafe {
+        syscall_4(
+            LinuxSysCalls::Open as u64,
+            c_path.as_ptr() as u64,
+            flags,
+            open_mode,
+            0,
+        )
+    }
 }
 
 #[repr(u64)]
