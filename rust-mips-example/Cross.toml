@@ -1,3 +1,0 @@
-[build]
-#xargo=true
-default-target="mips-unknown-linux-gnu"

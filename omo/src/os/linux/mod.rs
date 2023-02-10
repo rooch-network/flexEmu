@@ -1,9 +1,9 @@
-use log::info;
 use std::{
     cell::RefCell, collections::HashMap, env, io::Write, mem, os::unix::ffi::OsStrExt, rc::Rc,
     str::FromStr,
 };
 
+use log::info;
 use unicorn_engine::{
     unicorn_const::{uc_error, Arch, MemRegion, Permission},
     RegisterARM, RegisterARM64, RegisterMIPS, RegisterRISCV, RegisterX86,
@@ -878,16 +878,14 @@ impl Inner {
         }
         log::debug!("open with adjusted flags: {}", flags);
 
-        let path = read_string(core, filename, b"\x00")?;
+        let mut path = read_string(core, filename, b"\x00")?;
         if path.is_empty() {
             log::warn!("empty path to open ({}, {}, {})", filename, flags, mode);
             return Ok(-1);
         }
         log::debug!("open({}, {}, {}) pc: {}", path, flags, mode, core.pc()?);
 
-        let mut c_path = path.as_bytes().to_vec();
-        c_path.extend_from_slice(b"\x00");
-        let ret = open(c_path.as_ptr(), flags, mode);
+        let ret = open(&mut path, flags, mode);
         if ret < 0 {
             log::warn!(
                 "failed to open ({}, {}, {}): {:?}",
@@ -917,7 +915,7 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("write({}, {}, {}) pc: {}", fd, buf, count, core.pc()?);
         let data = Memory::read(core, buf, count as usize)?;
-        let size = write(fd, data.as_ptr(), count);
+        let size = write(fd, data, count);
         if size < 0 {
             log::warn!(
                 "failed to write ({}, {}, {}): {:?}",
@@ -952,7 +950,7 @@ impl Inner {
             let l = packer.unpack(l_origin.to_vec());
             ret += l as i64;
             let buf = Memory::read(core, addr, l as usize)?;
-            let size = write(fd, buf.as_ptr(), l);
+            let size = write(fd, buf, l);
             if size < 0 {
                 log::warn!(
                     "failed to writev ({}, {}, {}): {:?}",
@@ -976,7 +974,8 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("read({}, {}, {}) pc: {}", fd, buf, len, core.pc()?);
         let mut host_buf = vec![0_u8; len as usize];
-        let size = read(fd, host_buf.as_mut_ptr(), len);
+        let size = read(fd, &mut host_buf, len);
+
         if size < 0 {
             log::warn!(
                 "failed to read ({}, {}, {}): {:?}",

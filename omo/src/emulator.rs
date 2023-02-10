@@ -1,5 +1,15 @@
 //use crate::arch::Core;
 
+use std::{cell::RefCell, collections::BTreeMap, fs::create_dir_all, path::PathBuf, rc::Rc};
+
+use log::{debug, info, trace};
+use num_traits::Zero;
+use serde::{Deserialize, Serialize};
+use trie_db::{NodeCodec, TrieMut};
+use unicorn_engine::unicorn_const::{HookType, MemType, Mode};
+
+use ethtrie_codec::{EthTrieLayout, KeccakHasher, RlpNodeCodec};
+
 use crate::{
     arch::{ArchInfo, ArchT},
     config::OmoConfig,
@@ -9,13 +19,6 @@ use crate::{
     os::Runner,
     registers::{RegisterState, Registers},
 };
-use ethtrie_codec::{EthTrieLayout, KeccakHasher, RlpNodeCodec};
-use log::{info, trace};
-use num_traits::Zero;
-use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::BTreeMap, fs::create_dir_all, path::PathBuf, rc::Rc};
-use trie_db::{NodeCodec, TrieMut};
-use unicorn_engine::unicorn_const::{HookType, MemType, Mode};
 
 pub struct Emulator<'a, A, Os> {
     config: OmoConfig,
@@ -73,7 +76,7 @@ impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
         machine.add_code_hook(0, u32::MAX as u64, {
             |uc, addr, size| {
                 uc.get_data_mut().state.steps += 1;
-                info!(
+                debug!(
                     "step {}, {} {}, pc {}",
                     uc.get_data().state.steps,
                     addr,
