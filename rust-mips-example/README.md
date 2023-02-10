@@ -1,5 +1,5 @@
 ## Example crate
 
 ``` shell
-cross build --target mips-unknown-linux-musl --release -v
+cargo build --target mips-unknown-linux-musl --release -v
 ```

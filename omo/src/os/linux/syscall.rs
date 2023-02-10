@@ -8,8 +8,6 @@ use serde::{Deserialize, Serialize};
 use strum::{EnumString, EnumVariantNames};
 use unicorn_engine::unicorn_const::Arch;
 
-use crate::errors::from_raw_syscall_ret;
-
 // x86_64 syscall trap.
 #[repr(u64)]
 pub enum LinuxSysCalls {
@@ -27,6 +25,7 @@ pub enum LinuxSysCalls {
     Newfstatat = 262,
 }
 
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 pub unsafe fn syscall_4(trap: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64) -> i64 {
     let res;
     asm!(
@@ -208,7 +207,7 @@ impl Default for SysInfoMIPS {
     }
 }
 
-const LINUX_SYSCALL_TABLE: &str = include_str!("linux_syscall_table.json");
+const LINUX_SYSCALL_TABLE: &str = include_str!("syscall_table.json");
 
 fn parse_syscall_table(data: &str) -> BTreeMap<u8, BTreeMap<u64, String>> {
     let data: HashMap<String, BTreeMap<u64, String>> = serde_json::from_str(data).unwrap();
@@ -235,7 +234,6 @@ lazy_static! {
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum SysCalls {
-    GETPID,
     SET_THREAD_AREA,
     SET_TID_ADDRESS,
     POLL,

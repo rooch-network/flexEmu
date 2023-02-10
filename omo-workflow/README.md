@@ -1,6 +1,6 @@
 ## OMO Demo
 
-The repo contains a rust binary to demonstrate how omo work with onchain contracts to provide interacting fraud proof.
+Rust binary to demonstrate how omo work with onchain contracts to provide interacting fraud proof.
 
 ### How to run
 
@@ -12,6 +12,7 @@ The repo contains a rust binary to demonstrate how omo work with onchain contrac
 #### Run
 
 1. start starcoin dev server, and populate accounts and deploy onchain contracts.
+
 ```shell
 cd ./omo-workflow
 starcoin -n dev -d stc-dev

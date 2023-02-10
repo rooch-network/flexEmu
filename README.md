@@ -8,7 +8,7 @@ See more introductions here: [en](docs/overview.md) / [zh](docs/ch/overview.md).
 
 ## Platforms
 
-Could emulate program built with:
+OMO could emulate program built with:
 
 - **Arch**: MIPS32
 - **OS**: Linux
@@ -16,65 +16,82 @@ Could emulate program built with:
 
 May support more in the future.
 
+### Development Environment
+
+X86-64 Linux & Apple Silicon MacOS.
+
 ## Getting Started
 
-The project contains two Rust crates:
+The project contains three major Rust crates:
 
-- `./omo` : main entrypoint of the OMO emulator.
-- `./rust-mips-example`: example crate. It is configured to build into a linux mips binary, which can be run by `omo`.
+- [`./omo` ](omo): main entrypoint of the OMO emulator.
+- [`./rust-mips-example`](rust-mips-example): examples crate. It is configured to build into a linux mips binary, which
+  can be run by `OMO`.
+- [`./omo-workflow`](omo-workflow): Rust binary to demonstrate how OMO work with onchain contracts to provide
+  interacting fraud proof.
 
 ### Prerequisites
 
 - [rust](https://rustup.rs/)
+- [musl](https://musl.cc)
 
-#### Using Rust Cross
+#### Installing MUSL toolchains
 
-- [cross](https://github.com/cross-rs/cross)
-- Docker: cross needs it.
-- [cmake](https://cmake.org/download/) >= 3.12
+- Add mips-unknown-linux-musl target for rust:
 
-#### Using MUSL tools
-
-- Add mips-unknown-linux-musl supports:
 ```shell
 rustup target add mips-unknown-linux-musl
 ```
+
 - Download musl toolchain from [musl.cc](https://musl.cc): mips-linux-musl-cross
+
+- For Apple Silicon:
+
+```shell
+brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-mips
+```
 
 ### Run Example
 
 **Compile `rust-mips-example`:**
 
 ```shell
-cd ./rust-mips-example
-cross build --target mips-unknown-linux-musl --release -v
-# the compiled mips binary will be ./target/mips-unknown-linux-musl/release/rust-mips-example
-file target/mips-unknown-linux-musl/release/rust-mips-example
-```
-
-**If using MUSL tools:**
-
-- Set `linker = "mips-linux-musl-gcc"` in [cargo config](rust-mips-example/.cargo/config.toml)
-```shell
-cargo build --target mips-unknown-linux-musl --release --no-default-features
+cargo build --target mips-unknown-linux-musl --release 
 ```
 
 **Compile `OMO`:**
+
 ```shell
 cargo build --release
 ```
 
-**Run:**
+**Run Example1:**
+
 ```shell
-cd ./omo
-cargo run -- --config config.toml.example --env E1=a --env E2=b ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
+RUST_LOG=error ./omo2 --config config.toml.example run --env E1=a --env E2=b /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
 ```
 
 **Output:**
+
 ```
-Run ../rust-mips-example/target/mips-unknown-linux-musl/release/rust-mips-example
+Run rust-mips-example
 E1=a
 E2=b
+```
+
+**Run Example2:**
+
+```shell
+RUST_LOG=error ./omo2 --config config.toml.example run /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/arith-example 1 11
+```
+
+**Output:**
+
+```
+thread 'main' panicked at 'assertion failed: `(left == right)`
+  left: `10`,
+ right: `11`: expect 11, but got 10', rust-mips-example/src/arith_example.rs:13:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ```
 
 ## License
@@ -84,4 +101,5 @@ Distributed under the Apache License 2.0. See [LICENSE](LICENSE) for more inform
 ## Acknowledgments
 
 - [Cannon](https://github.com/ethereum-optimism/cannon)
+- [Unicorn](https://github.com/unicorn-engine/unicorn)
 - [Qiling](https://github.com/qilingframework/qiling)
