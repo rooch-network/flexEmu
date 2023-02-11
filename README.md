@@ -68,7 +68,7 @@ cargo build --release
 **Run Example1:**
 
 ```shell
-RUST_LOG=error ./omo2 --config config.toml.example run --env E1=a --env E2=b /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
+RUST_LOG=error ./omo --config config.toml.example run --env E1=a --env E2=b /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
 ```
 
 **Output:**
@@ -82,7 +82,7 @@ E2=b
 **Run Example2:**
 
 ```shell
-RUST_LOG=error ./omo2 --config config.toml.example run /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/arith-example 1 11
+RUST_LOG=error ./omo --config config.toml.example run /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/arith-example 1 11
 ```
 
 **Output:**
