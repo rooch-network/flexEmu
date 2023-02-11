@@ -1,7 +1,12 @@
-use crate::{arch::ArchInfo, engine::Engine};
-
-use crate::{arch::ArchT, memory::Memory, registers::StackRegister, utils::align};
 use unicorn_engine::unicorn_const::uc_error;
+
+use crate::{
+    arch::{ArchInfo, ArchT},
+    engine::Engine,
+    memory::Memory,
+    registers::StackRegister,
+    utils::align,
+};
 
 /// Stack operations
 pub trait Stack {
@@ -17,10 +22,9 @@ pub trait Stack {
     /// Note that this operation violates the FIFO property of the stack and may be used cautiously.
     ///        Args:
     ///             offset: offset in bytes from the top of the stack, not necessarily aligned to the
-    ///                     native stack item size. the offset may be either positive or netagive, where
+    ///                     native stack item size. the offset may be either positive or negative, where
     ///                     a 0 value means retrieving the value at the top of the stack
-    ///
-    ///         Returns: the value at the specified address
+    ///       Returns: the value at the specified address
     fn stack_read(&self, offset: i64) -> Result<u64, uc_error>;
     fn stack_write(&mut self, offset: i64, value: u64) -> Result<(), uc_error>;
 
