@@ -1,3 +1,5 @@
+/// `memory` module implements the read/write operations to underlying memory slots stored in eth-trie.
+/// Besides, the module also includes rw operations to registers.
 module omo::memory {
     use trie::hash_value::{HashValue};
     use signed_integer::bits::Bits;
@@ -10,6 +12,7 @@ module omo::memory {
     use StarcoinFramework::Option;
     use trie::rlp;
     use trie::rlp_stream;
+    use StarcoinFramework::Signer;
 
     const MISSING_REG_DATA: u64 = 200;
     const MEM_ACCESS_MUTST_BE_ALIGNED_TO_4BYTES: u64 = 401;
@@ -18,11 +21,12 @@ module omo::memory {
 
     const REG_FAKE_ADDRESS_START: u64 = 0xffffffff + 1;
 
-
+    /// Wrapper around trie db to store memory slots
     struct MemoryStorage has key, store {
         data: Option::Option<trie::TrieDB>,
     }
 
+    /// const key of registers stored in trie.
     const REG_KEY: vector<u8> = vector[0,0,0,0];
     struct Register has store, drop, copy {
         id: u64,
@@ -38,12 +42,21 @@ module omo::memory {
         root: HashValue,
     }
 
+    /// Create a new memory storage.
     public fun create(signer: &signer) {
         move_to(signer, MemoryStorage {
             data: Option::some(trie::new()),
         })
     }
 
+    /// Create a new memory storage if it doesn't exist.
+    public fun create_if_not_exists(signer: &signer) {
+        if (!exists<MemoryStorage>(Signer::address_of(signer))) {
+            create(signer)
+        }
+    }
+
+    /// Add trie node data to memory storage.
     public fun batch_add_trie_data(mem_addr: address, data: vector<vector<u8>>) acquires MemoryStorage {
         let db = borrow_global_mut<MemoryStorage>(mem_addr);
         {
@@ -55,7 +68,7 @@ module omo::memory {
             };
         };
     }
-
+    /// Get a one-shot Memory struct from underlying storage at some state root.
     public fun get_mem(memory_addr: address, state_root: HashValue): Memory acquires MemoryStorage {
          let mem = Memory {
              storage_handle: memory_addr,
@@ -117,6 +130,7 @@ module omo::memory {
     }
 
 
+    /// borrow underlying db of memory
     public fun borrow_db_mut(mem: &mut Memory): &mut trie::TrieDB {
         &mut mem.data
     }
@@ -142,6 +156,8 @@ module omo::memory {
             Vector::append(&mut mem.registers, temp);
         }
     }
+
+    /// get value of a register
     public fun get_register(mem: &Memory, id: u64): u64 {
         let i = 0;
         while (i < length(&mem.registers)) {

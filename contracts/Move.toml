@@ -9,6 +9,13 @@ signed_integer = {local = "./deps/signed_integer"}
 trie = {local = "./deps/trie"}
 #StarcoinFramework = {git = "https://github.com/starcoinorg/starcoin-framework.git", rev = "table_extension"}
 #starcoin-framework-commons = {git = "https://github.com/starcoinorg/starcoin-framework-commons.git", rev = "e7f538175a5f50a97207692569b6631a87ee08cc"}
-[addresses]
+
+[dev-addresses]
 omo = "0x48"
 signed_integer="0x49"
+trie="0x50"
+
+[addresses]
+omo="0xfc2cd714a9d954dcec4ca5366d2461c4"
+signed_integer="0xfc2cd714a9d954dcec4ca5366d2461c4"
+trie="0xfc2cd714a9d954dcec4ca5366d2461c4"

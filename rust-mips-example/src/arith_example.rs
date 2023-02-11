@@ -1,7 +1,9 @@
 use std::env::args;
 
 const CS: [u64; 4] = [1, 2, 3, 4];
+
 /// Calculate `x^3 + 2 * x^2 + 3 * x + 4`.
+/// e.g. x=1, exp = 1+2+3+4 = 10
 fn main() {
     let mut args = args();
     let _ = args.next().unwrap(); // first is binary name
