@@ -1,6 +1,6 @@
 # OMO
 
-Bytecode emulator with per-step state proof.
+General purpose bytecode emulator with per-step proof.
 It can be used to generate challenge proof of optimistic rollup,
 and other scenarios in blockchain which need state proof.
 
@@ -68,7 +68,7 @@ cargo build --release
 **Run Example1:**
 
 ```shell
-RUST_LOG=error ./omo --config config.toml.example run --env E1=a --env E2=b /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
+RUST_LOG=error ./omo --config config.toml.example run --env E1=a --env E2=b ../target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
 ```
 
 **Output:**
@@ -82,7 +82,7 @@ E2=b
 **Run Example2:**
 
 ```shell
-RUST_LOG=error ./omo --config config.toml.example run /Users/templex/rooch/omo/target/mips-unknown-linux-musl/release/arith-example 1 11
+RUST_LOG=error ./omo --config config.toml.example run ../rooch/omo/target/mips-unknown-linux-musl/release/arith-example 1 11
 ```
 
 **Output:**
