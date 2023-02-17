@@ -20,6 +20,14 @@ May support more in the future.
 
 X86-64 Linux & Apple Silicon MacOS.
 
+***X86-64 Linux:***
+
+Fully supported, for developing and production environment. Any issue will be fixed soon.
+
+***Apple Silicon MacOS:***
+
+Not fully supported yet, only for developing.
+
 ## Getting Started
 
 The project contains three major Rust crates:
