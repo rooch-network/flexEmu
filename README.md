@@ -53,7 +53,7 @@ rustup target add mips-unknown-linux-musl
 
 - Download musl toolchain from [musl.cc](https://musl.cc): mips-linux-musl-cross
 
-- For Apple Silicon:
+- ***For Apple Silicon:***
 
 ```shell
 brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-mips
