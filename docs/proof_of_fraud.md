@@ -20,7 +20,7 @@ As can be seen, there is a key element in interactive on-chain arbitration, name
 
 For example, arbitrum defines its own set of virtual machines, AVMs, and corresponding underlying instructions. AVMs save different types of data, e.g., code blocks, memory blocks, registers, call stacks, etc., when executing contract code, and then generate proofs of these data in an efficient way.
 
-! [arb one-step proof](... /imgs/arb-onestep-proof.png)
+![arb-one-step-proof](imgs/arb-onestep-proof.png)
 
 For example, optimisim's latest [cannon](https://github.com/ethereum-optimism/cannon) is also based on a similar principle of state proof generation.
 The difference is that instead of customizing a new set of virtual machines, cannon compiles existing EVM virtual machine code into assembly code for the MIPS instruction set.
