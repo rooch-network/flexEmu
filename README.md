@@ -55,6 +55,22 @@ rustup target add mips-unknown-linux-musl
 
 - ***For Apple Silicon:***
 
+Due to the [musl issue](https://github.com/FiloSottile/homebrew-musl-cross/issues/17), to install musl-cross with homebrew, one mush install it without args, uninstall, and reinstall with args.
+
+Install without args:
+
+```shell
+brew install FiloSottile/musl-cross/musl-cross
+```
+
+Uninstall it:
+
+```shell
+brew uninstall FiloSottile/musl-cross/musl-cross
+```
+
+Reinstall with args:
+
 ```shell
 brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-mips
 ```
