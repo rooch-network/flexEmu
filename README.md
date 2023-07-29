@@ -56,7 +56,8 @@ rustup target add mips-unknown-linux-musl
 - ***For Apple Silicon:***
 
 ```shell
-brew install FiloSottile/musl-cross/musl-cross --without-x86_64 --with-mips
+brew tap richard-vd/musl-cross
+brew install richard-vd/musl-cross/musl-cross --without-x86_64 --with-mips
 ```
 
 ### Run Example
