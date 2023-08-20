@@ -1,7 +1,9 @@
 [workspace]
+resolver = "2"
 members = [
     "omo",
     "omo-workflow",
     "rust-mips-example",
     "crates/ethtrie-codec"
 ]
+
