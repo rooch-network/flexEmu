@@ -7,7 +7,7 @@
 
 //# run --signers alice --args x"{{$.read-json[-1].access_nodes}}" --args x"{{$.read-json[-1].root_before}}" --args x"{{$.read-json[-1].root_after}}"
 script {
-    use omo::mips_emulator;
+    use flexemu::mips_emulator;
     use StarcoinFramework::Signer;
     use trie::rlp;
 

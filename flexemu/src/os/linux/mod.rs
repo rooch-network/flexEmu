@@ -1356,7 +1356,7 @@ impl Inner {
     ) -> Result<i64, EmulatorError> {
         log::debug!("getcwd ({}, {}) pc: {}", buf, size, core.pc()?);
         let dir = match env::current_dir() {
-            // omo should run on same env.
+            // flexemu should run on same env.
             Err(e) => {
                 log::debug!("failed to getcwd ({}, {}): {:?}", buf, size, e);
                 return Ok(-1);

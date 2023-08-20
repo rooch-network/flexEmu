@@ -1,11 +1,11 @@
 /// Mips Reference impl. https://inst.eecs.berkeley.edu/~cs61c/resources/MIPS_help.html
-module omo::mips {
+module flexemu::mips {
     use signed_integer::bits;
     use signed_integer::bits::{Bits, se, left_shift};
     use signed_integer::i64;
     use trie::hash_value::HashValue;
     use trie::hash_value;
-    use omo::memory::{Memory, read_reg, write_reg, read_reg_bits, write_reg_bits, read_memory, write_memory};
+    use flexemu::memory::{Memory, read_reg, write_reg, read_reg_bits, write_reg_bits, read_memory, write_memory};
 
 
     const REG_ZERO: u64 = 2;
@@ -532,7 +532,7 @@ module omo::mips {
 
 }
 
-//module omo::utils {
+//module flexemu::utils {
 //    /// SignExt_idx(dat)
 //    public fun se(dat: u64, idx: u64): u64 {
 //        0

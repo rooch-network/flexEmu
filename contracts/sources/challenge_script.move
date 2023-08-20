@@ -1,9 +1,9 @@
 /// Public entrpoints functions for onchain challenges.
-module omo::challenge_script {
-    use omo::SimpleChallenge;
+module flexemu::challenge_script {
+    use flexemu::SimpleChallenge;
     use trie::hash_value;
     use trie::rlp;
-    use omo::mips_emulator;
+    use flexemu::mips_emulator;
     use StarcoinFramework::Signer;
 
     public(script) fun declare_state(signer: signer, final_state: vector<u8>) {

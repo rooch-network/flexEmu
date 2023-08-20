@@ -1,7 +1,7 @@
 Components
 ===
 
-OMO 主要有以下四个关键组件：
+flexEmu 主要有以下四个关键组件：
 
 * Loader: 加载可执行文件。
 * CPU Emulator: 在宿主机上模拟执行指令。
@@ -28,8 +28,8 @@ OMO 主要有以下四个关键组件：
 
 ## Registers and Stack
 
-在 CPU Emulator 之上， OMO 提供了关于栈的抽象，以及更高级的寄存器和内存操作。这样我们可以很方便的对运行状态进行快照。
+在 CPU Emulator 之上， flexEmu 提供了关于栈的抽象，以及更高级的寄存器和内存操作。这样我们可以很方便的对运行状态进行快照。
 
 ## OS Interface
 
-OMO 模拟了大量系统调用，并保证调用是幂等的。
+flexEmu 模拟了大量系统调用，并保证调用是幂等的。

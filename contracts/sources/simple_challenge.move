@@ -1,9 +1,9 @@
 /// Challenge contracts used by layer2 roles like defender/challenger.
-module omo::SimpleChallenge {
+module flexemu::SimpleChallenge {
     use StarcoinFramework::Table;
     use StarcoinFramework::Vector;
     use StarcoinFramework::Signer;
-    use omo::mips_emulator;
+    use flexemu::mips_emulator;
     use trie::hash_value::HashValue;
     use trie::hash_value;
 
@@ -80,7 +80,7 @@ module omo::SimpleChallenge {
         move_to(signer, challenges);
     }
 
-    /// only used in omo demo
+    /// only used in flexemu demo
     public fun clean_state(signer: &signer) acquires Global, Challenges {
         if (exists<Global>(Signer::address_of(signer))) {
             let Challenges {value} = move_from<Challenges>(Signer::address_of(signer));

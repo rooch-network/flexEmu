@@ -1,4 +1,4 @@
-# OMO
+# flexEmu
 
 General purpose bytecode emulator with per-step proof.
 It can be used to generate challenge proof of optimistic rollup,
@@ -8,7 +8,7 @@ See more introductions here: [en](docs/overview.md) / [zh](docs/ch/overview.md).
 
 ## Platforms
 
-OMO could emulate program built with:
+flexEmu could emulate program built with:
 
 - **Arch**: MIPS32
 - **OS**: Linux
@@ -32,10 +32,10 @@ Not fully supported yet, only for developing.
 
 The project contains three major Rust crates:
 
-- [`./omo` ](omo): main entrypoint of the OMO emulator.
+- [`./flexemu` ](flexemu): main entrypoint of the flexEmu emulator.
 - [`./rust-mips-example`](rust-mips-example): examples crate. It is configured to build into a linux mips binary, which
-  can be run by `OMO`.
-- [`./omo-workflow`](omo-workflow): Rust binary to demonstrate how OMO work with onchain contracts to provide
+  can be run by `flexEmu`.
+- [`./flexemu-workflow`](flexemu-workflow): Rust binary to demonstrate how flexEmu work with onchain contracts to provide
   interacting fraud proof.
 
 ### Prerequisites
@@ -68,7 +68,7 @@ brew install richard-vd/musl-cross/musl-cross --without-x86_64 --with-mips
 cargo build --target mips-unknown-linux-musl --release 
 ```
 
-**Compile `OMO`:**
+**Compile `flexEmu`:**
 
 ```shell
 cargo build --release
@@ -77,7 +77,7 @@ cargo build --release
 **Run Example1:**
 
 ```shell
-RUST_LOG=error ./omo --config config.toml.example run --env E1=a --env E2=b ../target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
+RUST_LOG=error ./flexemu --config config.toml.example run --env E1=a --env E2=b ../target/mips-unknown-linux-musl/release/rust-mips-example E1 E2
 ```
 
 **Output:**
@@ -91,7 +91,7 @@ E2=b
 **Run Example2:**
 
 ```shell
-RUST_LOG=error ./omo --config config.toml.example run ../rooch/omo/target/mips-unknown-linux-musl/release/arith-example 1 11
+RUST_LOG=error ./flexemu --config config.toml.example run ../rooch/flexemu/target/mips-unknown-linux-musl/release/arith-example 1 11
 ```
 
 **Output:**

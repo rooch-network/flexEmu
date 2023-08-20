@@ -11,11 +11,11 @@ trie = {local = "./deps/trie"}
 #starcoin-framework-commons = {git = "https://github.com/starcoinorg/starcoin-framework-commons.git", rev = "e7f538175a5f50a97207692569b6631a87ee08cc"}
 
 [dev-addresses]
-omo = "0x48"
+flexemu = "0x48"
 signed_integer="0x49"
 trie="0x50"
 
 [addresses]
-omo="0xfc2cd714a9d954dcec4ca5366d2461c4"
+flexemu="0xfc2cd714a9d954dcec4ca5366d2461c4"
 signed_integer="0xfc2cd714a9d954dcec4ca5366d2461c4"
 trie="0xfc2cd714a9d954dcec4ca5366d2461c4"

@@ -27,12 +27,12 @@ The difference is that instead of customizing a new set of virtual machines, can
 It then generates intermediate state data and proofs for the underlying MIPS code.
 
 I think cannon's idea is more flexible, general and extensible, but cannon's current implementation is too tightly bound to geth to make it easy to apply it directly to other contract language VMs, such as Move.
-OMO tries to extend the applicability of this intermediate state proof generation idea to more VMs.
+flexEmu tries to extend the applicability of this intermediate state proof generation idea to more VMs.
 
-Currently, OMO implements the execution of the mips instruction set code and the generation of intermediate state proofs (other instruction sets such as wasm, riscv are planned in the future).
+Currently, flexEmu implements the execution of the mips instruction set code and the generation of intermediate state proofs (other instruction sets such as wasm, riscv are planned in the future).
 The underlying implementation of the MIPS simulator uses [unicorn](https://github.com/unicorn-engine/unicorn) and references some of the logic of [qiling](https://github.com/qilingframework/qiling).
 During the execution of the mips code, unicorn provides various hooks that allow the caller to easily know the running state of the program.
-Specifically for state proof, OMO is concerned with the _memory/register_ state of the program.
+Specifically for state proof, flexEmu is concerned with the _memory/register_ state of the program.
 
 ``` rust
 pub struct EmulatorState {
@@ -43,7 +43,7 @@ pub struct EmulatorState {
 ```
 
 Memory and registers are essentially an array (some addresses have a value of 0 and can be left out of the state proof), and a more popular way of generating proofs is merkle tree root.
-OMO is also based on this plain approach to implement intermediate state proofs.
+flexEmu is also based on this plain approach to implement intermediate state proofs.
 
 ### On-chain Execution (arbitration)
 
@@ -55,7 +55,7 @@ This idea is similar to that of the Ethernet light node: in the absence of a com
 
 ### Arbitration Contract (Judge)
 
-To verify the feasibility of OMO, we implemented [arbitration contract](https://github.com/starcoinorg/omo/tree/main/contracts) for the mips instruction set using Move.
+To verify the feasibility of flexEmu, we implemented [arbitration contract](https://github.com/rooch-network/flexemu/tree/main/contracts) for the mips instruction set using Move.
 This contract implements the on-chain execution functionality described above and contains.
 
 - The up-chaining of pre-states.
@@ -65,5 +65,5 @@ This contract implements the on-chain execution functionality described above an
 
 ## DEMO for on-chain Arbitration
 
-OMO contains a command line program that simulates on-chain arbitration between the accuser and the defender: [omo-workflow](https://github.com/starcoinorg/omo/tree/main/omo-workflow).
+flexEmu contains a command line program that simulates on-chain arbitration between the accuser and the defender: [flexemu-workflow](https://github.com/rooch-network/flexemu/tree/main/flexemu-workflow).
 The code home page describes how to run the program, and interested readers can try it out.

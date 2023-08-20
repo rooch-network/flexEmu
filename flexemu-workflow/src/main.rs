@@ -1,7 +1,7 @@
 use clap::Parser;
 use log::LevelFilter;
-use omo::{config::OmoConfig, parse_key_val};
-use omo_workflow::RunUnit;
+use flexemu::{config::FlexEmuConfig, parse_key_val};
+use flexemu_workflow::RunUnit;
 use starcoin_crypto::{ed25519::Ed25519PrivateKey, ValidCryptoMaterialStringExt};
 use starcoin_rpc_client::RpcClient;
 use starcoin_types::account_address::AccountAddress;
@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
         node_url,
         cmd,
     } = Options::parse();
-    let config: OmoConfig =
+    let config: FlexEmuConfig =
         toml::from_str(&std::fs::read_to_string(&config_file).unwrap()).unwrap();
     let binary = read(exec.as_path()).unwrap();
     let argv = {
@@ -74,7 +74,7 @@ fn main() -> anyhow::Result<()> {
     let client = RpcClient::connect_websocket(&node_url).unwrap();
     match cmd {
         Commands::Proposer { fault_step } => {
-            let p = omo_workflow::Proposer::new(
+            let p = flexemu_workflow::Proposer::new(
                 config,
                 RunUnit {
                     env: envs,
@@ -88,7 +88,7 @@ fn main() -> anyhow::Result<()> {
             p.run()?;
         }
         Commands::Challenger { proposer } => {
-            let challenger = omo_workflow::Challenger::new(
+            let challenger = flexemu_workflow::Challenger::new(
                 config,
                 RunUnit {
                     env: envs,

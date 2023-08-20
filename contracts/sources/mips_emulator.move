@@ -1,7 +1,7 @@
 /// A mips emulator which can run a single mips instruction based on pre-added state.
-module omo::mips_emulator {
-    use omo::memory;
-    use omo::mips;
+module flexemu::mips_emulator {
+    use flexemu::memory;
+    use flexemu::mips;
     use trie::hash_value;
 
     public fun create(signer: &signer) {

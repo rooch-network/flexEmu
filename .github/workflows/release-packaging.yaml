@@ -8,7 +8,7 @@ jobs:
   release:
     name: Release Packaging
     env:
-      PROJECT_NAME_UNDERSCORE: omo
+      PROJECT_NAME_UNDERSCORE: flexemu
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

@@ -1,9 +1,9 @@
 Components
 ===
 
-OMO comprises four key components in present:
+flexEmu comprises four key components in present:
 
-* Loader: Loading process for executing in OMO emulator.
+* Loader: Loading process for executing in flexEmu emulator.
 * CPU Emulator: Emulate instructions on host machine. 
 * Registers and Stack: Emulate registers and stack in memory for snapshot.
 * OS Interface: Emulate system calls on host OS.
@@ -28,8 +28,8 @@ Based on [Unicorn](https://github.com/unicorn-engine/unicorn) to achieve multi C
 
 ## Registers and Stack
 
-On top of CPU Emulator, OMO provides an abstraction of the stack, as well as more advanced register and memory operations. This allows us to easily take snapshots of the running state.
+On top of CPU Emulator, flexEmu provides an abstraction of the stack, as well as more advanced register and memory operations. This allows us to easily take snapshots of the running state.
 
 ## OS Interface
 
-OMO simulates a large number of system calls and guarantees that the calls are idempotent.
+flexEmu simulates a large number of system calls and guarantees that the calls are idempotent.

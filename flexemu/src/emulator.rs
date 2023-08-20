@@ -12,7 +12,7 @@ use ethtrie_codec::{EthTrieLayout, KeccakHasher, RlpNodeCodec};
 
 use crate::{
     arch::{ArchInfo, ArchT},
-    config::OmoConfig,
+    config::FlexEmuConfig,
     engine::{Engine, Machine, MemoryState},
     errors::EmulatorError,
     loader::{ElfLoader, LoadInfo},
@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub struct Emulator<'a, A, Os> {
-    config: OmoConfig,
+    config: FlexEmuConfig,
     core: Engine<'a, A>,
     os: Os,
 }
@@ -36,7 +36,7 @@ impl<'a, A, O> Emulator<'a, A, O> {
 }
 
 impl<'a, A: ArchT, O: Runner> Emulator<'a, A, O> {
-    pub fn new(conf: OmoConfig, arch: A, mode: Mode, os: O) -> Result<Self, EmulatorError> {
+    pub fn new(conf: FlexEmuConfig, arch: A, mode: Mode, os: O) -> Result<Self, EmulatorError> {
         let mut machine = Machine::create(arch, mode);
         // let binary = binary.as_ref();
         // let load_result = ElfLoader::load(&config.os, binary, argv, &mut machine)?;
