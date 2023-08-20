@@ -1,7 +1,7 @@
 Guidelines
 ===
 
-Guidelines of background, design and implementation docs of OMO.
+Guidelines of background, design and implementation docs of flexEmu.
 
 * [Overview](overview.md) / [[概览]](ch/overview.md)
 * [Components](components.md) / [[组件]](ch/components.md)

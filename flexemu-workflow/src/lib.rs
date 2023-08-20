@@ -9,9 +9,9 @@ use crate::{
     },
 };
 use log::{error, info};
-use omo::{
+use flexemu::{
     arch::mips::{MipsProfile, MIPS},
-    config::OmoConfig,
+    config::FlexEmuConfig,
     emulator::{Emulator, EmulatorState, StateChange},
     os::linux::LinuxRunner,
     step_proof::generate_step_proof,
@@ -32,7 +32,7 @@ use std::{thread::sleep, time::Duration};
 pub struct SharedData {
     client: RpcClient,
     key: Ed25519PrivateKey,
-    omo_config: OmoConfig,
+    flexemu_config: FlexEmuConfig,
     program: RunUnit,
 }
 pub struct Challenger {
@@ -52,7 +52,7 @@ pub struct RunUnit {
 
 impl Proposer {
     pub fn new(
-        omo_config: OmoConfig,
+        flexemu_config: FlexEmuConfig,
         program: RunUnit,
         key: Ed25519PrivateKey,
         rpc: RpcClient,
@@ -64,7 +64,7 @@ impl Proposer {
                 client: rpc,
                 key,
                 program,
-                omo_config,
+                flexemu_config,
             },
         }
     }
@@ -85,7 +85,7 @@ impl Proposer {
             info!("already declare_state with root {}", g.declared_state);
         } else {
             let emu_state = run_mips(
-                self.inner.omo_config.clone(),
+                self.inner.flexemu_config.clone(),
                 self.inner.program.binary.clone(),
                 self.inner.program.argv.clone(),
                 self.inner.program.env.clone(),
@@ -120,7 +120,7 @@ impl Proposer {
         // already stopped
         if c.l + 1 == c.r {
             let state_change = run_mips_state_change(
-                self.inner.omo_config.clone(),
+                self.inner.flexemu_config.clone(),
                 self.inner.program.binary.clone(),
                 self.inner.program.argv.clone(),
                 self.inner.program.env.clone(),
@@ -186,7 +186,7 @@ impl Proposer {
                     let state_root = match self.fault_step {
                         Some(f) if f <= next_step as usize => HashValue::new(
                             run_mips(
-                                self.inner.omo_config.clone(),
+                                self.inner.flexemu_config.clone(),
                                 self.inner.program.binary.clone(),
                                 self.inner.program.argv.clone(),
                                 self.inner.program.env.clone(),
@@ -196,7 +196,7 @@ impl Proposer {
                         ),
                         _ => HashValue::new(
                             run_mips(
-                                self.inner.omo_config.clone(),
+                                self.inner.flexemu_config.clone(),
                                 self.inner.program.binary.clone(),
                                 self.inner.program.argv.clone(),
                                 self.inner.program.env.clone(),
@@ -250,7 +250,7 @@ impl SharedData {
 
 impl Challenger {
     pub fn new(
-        omo_config: OmoConfig,
+        flexemu_config: FlexEmuConfig,
         program: RunUnit,
         key: Ed25519PrivateKey,
         rpc: RpcClient,
@@ -262,7 +262,7 @@ impl Challenger {
                 client: rpc,
                 key,
                 program,
-                omo_config,
+                flexemu_config,
             },
         }
     }
@@ -277,7 +277,7 @@ impl Challenger {
             let declared_state = remote_reader.get_resource::<Global>(self.proposer_address)?;
             if let Some(Global { declared_state }) = declared_state {
                 let emu_state = run_mips(
-                    self.inner.omo_config.clone(),
+                    self.inner.flexemu_config.clone(),
                     self.inner.program.binary.clone(),
                     self.inner.program.argv.clone(),
                     self.inner.program.env.clone(),
@@ -348,7 +348,7 @@ impl Challenger {
         let proposer_address = self.proposer_address;
         if c.l + 1 == c.r {
             let state_change = run_mips_state_change(
-                self.inner.omo_config.clone(),
+                self.inner.flexemu_config.clone(),
                 self.inner.program.binary.clone(),
                 self.inner.program.argv.clone(),
                 self.inner.program.env.clone(),
@@ -397,7 +397,7 @@ impl Challenger {
                 );
             } else {
                 let state = run_mips(
-                    self.inner.omo_config.clone(),
+                    self.inner.flexemu_config.clone(),
                     self.inner.program.binary.clone(),
                     self.inner.program.argv.clone(),
                     self.inner.program.env.clone(),
@@ -416,7 +416,7 @@ impl Challenger {
 }
 
 fn run_mips(
-    config: OmoConfig,
+    config: FlexEmuConfig,
     binary: Vec<u8>,
     argv: Vec<String>,
     env: Vec<(String, String)>,
@@ -435,7 +435,7 @@ fn run_mips(
 }
 
 fn run_mips_state_change(
-    config: OmoConfig,
+    config: FlexEmuConfig,
     binary: Vec<u8>,
     argv: Vec<String>,
     env: Vec<(String, String)>,

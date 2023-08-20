@@ -27,12 +27,12 @@
 然后针对更底层的 MIPS 代码，生成相应的中间状态数据以及证明。
 
 我认为，cannon 的思路更加灵活，更具有通用性和扩展性，但 cannon 目前的实现和 geth 捆绑的过于紧密，不便于将其直接运用到其他合约语言虚拟机上，比如 Move。
-OMO 试图扩展这种中间状态证明生成思路的适用范围，让其可以被更多的虚拟机使用。
+flexEmu 试图扩展这种中间状态证明生成思路的适用范围，让其可以被更多的虚拟机使用。
 
-目前 OMO 实现了 mips 指令集代码的执行和中间状态证明的生成（其他指令集比如 wasm, riscv 也在后续计划中）。
+目前 flexEmu 实现了 mips 指令集代码的执行和中间状态证明的生成（其他指令集比如 wasm, riscv 也在后续计划中）。
 MIPS 模拟器的底层实现使用了 [unicorn](https://github.com/unicorn-engine/unicorn)，并参考了 [qiling](https://github.com/qilingframework/qiling) 的部分逻辑。
 在执行 mips 代码的过程中，unicorn 提供了多种 hook，能够让调用者方便的知晓程序的运行状态。
-具体到状态证明，OMO 主要关心程序的 _内存/寄存器_ 状态。
+具体到状态证明，flexEmu 主要关心程序的 _内存/寄存器_ 状态。
 
 ``` rust
 pub struct EmulatorState {
@@ -43,7 +43,7 @@ pub struct EmulatorState {
 ```
 
 内存和寄存器本质上都是一个数组（有些地址的值为0，可以不参与状态证明），一种比较大众的证明生成方式是 merkle tree root。
-OMO 也是基于这种朴素的方法实现中间状态证明。
+flexEmu 也是基于这种朴素的方法实现中间状态证明。
 
 ### 链上执行（仲裁）
 
@@ -55,7 +55,7 @@ OMO 也是基于这种朴素的方法实现中间状态证明。
 
 ### 仲裁合约（法官）
 
-为了验证 OMO 的可行性，我们用 Move 实现了针对 mips 指令集的[仲裁合约](https://github.com/starcoinorg/omo/tree/main/contracts)。
+为了验证 flexEmu 的可行性，我们用 Move 实现了针对 mips 指令集的[仲裁合约](https://github.com/rooch-network/flexemu/tree/main/contracts)。
 该合约实现了上述的链上执行功能，包含了：
 
 - 前置状态的上链。
@@ -65,6 +65,6 @@ OMO 也是基于这种朴素的方法实现中间状态证明。
 
 ## 链上仲裁的 DEMO
 
-OMO 代码库里，包含有一个模拟控辩双方做链上仲裁的命令行程序：[omo-workflow](https://github.com/starcoinorg/omo/tree/main/omo-workflow) 。
+flexEmu 代码库里，包含有一个模拟控辩双方做链上仲裁的命令行程序：[flexemu-workflow](https://github.com/rooch-network/flexemu/tree/main/flexemu-workflow) 。
 代码主页介绍了如何运行该程序，有兴趣的读者可以动手尝试一下。
 

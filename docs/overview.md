@@ -1,7 +1,7 @@
 Overview
 ===
 
-## About OMO
+## About flexEmu
 
 As the number of on-chain transactions increases, Layer2 has become an important research area to solve the scaling problem, and there are already grounded solutions in the direction of optimistic rollup, such as Arbitrum (later called arb) and Optimism Cannon (later called op).
 
@@ -13,8 +13,8 @@ Based on this, we try to implement a generic and verifiable contract execution e
 
 Unlike Qiling, the execution environment of contracts in blockchain is relatively simple, with no complex I/O external interactions, and no need to consider system isolation. In addition, qiling lacks intermediate state generation and proof of state, which is one of the features required for interactive arbitration.
 
-We refer to this contract execution environment as OMO.
+We refer to this contract execution environment as flexEmu.
 
 ## Learn More
 
-You can learn OMO from [Documents](guidelines.md).
+You can learn flexEmu from [Documents](guidelines.md).

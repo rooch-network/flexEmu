@@ -1,9 +1,9 @@
 use byteorder::ByteOrder;
 use clap::Parser;
 use log::{info, LevelFilter};
-use omo::{
+use flexemu::{
     arch::mips::{MipsProfile, MIPS},
-    config::OmoConfig,
+    config::FlexEmuConfig,
     emulator::{Emulator, StateChange},
     errors::EmulatorError,
     os::linux::LinuxRunner,
@@ -63,7 +63,7 @@ fn main() -> Result<(), EmulatorError> {
 
     let opts: Options = Options::parse();
 
-    let config: OmoConfig =
+    let config: FlexEmuConfig =
         toml::from_str(&std::fs::read_to_string(&opts.config_file).unwrap()).unwrap();
 
     match opts.command {

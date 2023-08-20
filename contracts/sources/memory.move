@@ -1,6 +1,6 @@
 /// `memory` module implements the read/write operations to underlying memory slots stored in eth-trie.
 /// Besides, the module also includes rw operations to registers.
-module omo::memory {
+module flexemu::memory {
     use trie::hash_value::{HashValue};
     use signed_integer::bits::Bits;
     use StarcoinFramework::Vector::{length};
